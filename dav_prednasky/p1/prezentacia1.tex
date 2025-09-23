@@ -47,11 +47,11 @@
 
 \begin{frame}{Tento predmet}
 \begin{itemize}
-\item zameraný najmä na praktické aspekty práce s relačnými DBMS
+\item zameraný na praktické aspekty práce s relačnými DBMS
 \item dotazy
 \item navrhovanie databázových schém v relačnom modeli
 \item transakcie
-\item efektivita (význam indexov, vkladanie veľkých objemov dát)
+\item efektivita (indexy, vkladanie veľkých objemov dát)
 \pause
 \item ale aj prehľad o teoretických aspektoch (vyjadrovacia sila dotazovacích jazykov, zložitosť vybraných algoritmov)
 \end{itemize}
@@ -60,7 +60,7 @@
 \begin{frame}{Hodnotenie}
 \begin{itemize}
 \item účasť na prednáškach ani cvičeniach nie je povinná
-\item prednášky neraz zahŕňajú aj \uv{teoretické precvičenie}
+\item prednášky niekedy zahŕňajú aj \uv{teoretické precvičenie}
 \pause
 \item na známku E treba 60\% bodov zo všetkého
 \item cvičenia sú praktické, vhodné na samostatnú či skupinovú prácu
@@ -71,14 +71,31 @@
 \end{itemize}
 \end{frame}
 
-\begin{frame}{Využívanie LLM}
-Vyskúšajte prácu s ChatGPT či iným LLM:
+\begin{frame}{Filozofia predmetu}
 \begin{itemize}
-\item nechajte si nejakú tému či detail vysvetliť
-\item nechajte ho klásť vám otázky k učivu
-\item rozpory medzi tvrdeniami LLM a inými materiálmi možno diskutovať na prednáške
-\pause
-\item môžete si nechať kontrolovať dotazy, príp. vyžiadať si alternatívne riešenia a nechať LLM posúdiť ich výhody/nevýhody
+\item niektorí z vás pravidelne používajú SQL, iní sotva začínajú; nemá význam, aby všetci riešili naraz to isté
+\item v zadaniach cvičení preskakujte nebodované úlohy, ktoré zjavne viete riešiť
+\item AI vie vyriešiť cca všetky zadané úlohy, keď však prácu spraví za vás, takmer nič sa nenaučíte
+\item predmet zachytáva veľa rôznych vecí, aby ste mali prehľad, nepotrebujete však vedieť detaily
+    (prehľad má hodnotu aj v dobe AI --- nie je ľahké primäť LLM, aby vám povedal o niečom, čo netušíte, že existuje)
+\item občas sa dotkneme spracovania dát aj mimo databáz (napr. ako triediť dáta, ktoré sa nezmestia do RAM)
+\end{itemize}
+\end{frame}
+
+\begin{frame}{Využívanie AI}
+Riešenia cvičení a DÚ pred odovzdaním:
+\begin{itemize}
+\item diskutujte so spolužiakmi a AI na všeobecnej úrovni, nechajte si poradiť, ale primárne riešte úlohy sami
+\item riešenia pred odovzdaním nechajte skontrolovať aspoň dvom AI modelom (ChatGPT, Claude, Gemini...)
+\item opravte chyby, nechajte si navrhnúť zlepšenia a alternatívy
+\item AI dáva užitočný feedback, ale nie je celkom spoľahlivý; starostlivo preverujte, čo AI tvrdí, môžete konzultovať so spolužiakmi
+\end{itemize}
+\end{frame}
+
+\begin{frame}{Využívanie AI}
+\begin{itemize}
+\item rozpory medzi tvrdeniami AI a inými materiálmi možno diskutovať na prednáške
+\item v niektorých prezentáciách otázky na zamyslenie, diskutujte o nich s AI a navzájom
 \end{itemize}
 \end{frame}
 
@@ -106,14 +123,14 @@ DBMS (database management system), voľne tiež databáza
 \end{itemize}
 \bigskip
 \pause
-Aplikácie zapisujúce extrémne množstvo dát neraz nevyužívajú DBMS, lebo by ich to spomalilo.
+Aplikácie zapisujúce extrémne množstvo dát neraz nevyužívajú klasický DBMS, lebo by ich to spomalilo.
 \end{frame}
 
 \begin{frame}{Čo všetko súvisí s DBMS?}
 \begin{itemize}
 \item fyzické umiestnenie dát (HDD vs. SSD, súborový systém)
 \item sieťové pripojenia (klienti, distribuovanosť databázy)
-\item paralelizmus (veľa používateľov robiacich operácie nad tými istými dátami)
+\item paralelizmus (veľa používateľov vykonávajúcich operácie nad tými istými dátami)
 \item optimalizácia dotazov (algoritmická zložitosť)
 \end{itemize}
 \end{frame}
@@ -164,9 +181,9 @@ Záznamy z rôznych tabuliek sa prepájajú operáciou JOIN.
 \pause
 Prístup k dátam z programovacích jazykov:
 \begin{itemize}
-\item priamo (cez DML)
+\item priamo (cez DQL a DML)
 \item s jednoduchou nadstavbou (prepared statement atď.)
-\item ORM (object-relational mapper) --- pracuje sa s objektmi, DML sa automaticky generuje v pozadí 
+\item ORM (object-relational mapper) --- pracuje sa s objektmi, DQL a DML sa automaticky generujú v pozadí
 \end{itemize}
 \end{frame}
 
@@ -254,6 +271,27 @@ Alkoholy, ktoré ľúbi každý pijan (ktorý niečo ľúbi), čapujú ich všad
 \end{frame}
 
 \begin{frame}
+\frametitle{Prečo toľké zaostávanie za štandardom SQL?}
+\begin{itemize}
+\item DBMS prioritizujú fukcionality podľa požiadaviek svojich zákazníkov
+\item nezhody: skôr, ako sa unifikovaná verzia podpory pre JSON dostala do štandardu (cca 2016), rôzne DBMS to implementovali po svojom
+(druhá sada operátorov pre JSON nemá pridanú hodnotu a deprecation pre pôvodnú sadu vyvolá nevôľu zákazníkov)
+\item pre niektoré časti štandardu nie je známy žiaden v praxi efektívny spôsob výpočtu (alebo by vyžadoval masívnu zmenu vnútorného spôsobu fungovania DBMS)
+\item štandard je veľmi komplikovaný a fungovanie databázy tiež (paralelizmus, prelínanie funkcionalít), pridávanie nových vecí tak znamená veľké úsilie neraz s malou pridanou hodnotou a značným rizikom (spomalenie či bugy pre klientov, čo nič nové nepotrebujú)
+\end{itemize}
+\end{frame}
+
+\begin{frame}
+\frametitle{Prečo toľké zaostávanie za štandardom SQL?}
+Príklady funkcionalít s nízkou podporou:
+\begin{itemize}
+\item temporal tables (evidencia histórie pre jednotlivé riadky, nie iba posledný stav)
+\item pattern matching zahŕňajúci postupnosti riadkov (napr. time-series data analysis)
+\item polymorphic table functions (výsledkom je tabuľka, ktorej stĺpce závisia od obsahu db)
+\end{itemize}
+\end{frame}
+
+\begin{frame}
 \frametitle{NoSQL databázy}
 \begin{theorem}[CAP theorem, proved in 2002]
 Neexistuje systém, ktorý má zároveň tieto 3 vlastnosti:
@@ -319,12 +357,23 @@ SQLite
 \end{itemize}
 \end{frame}
 
+
 \begin{frame}{Literatúra}
 \begin{itemize}
 \item {\scriptsize\url{http://www.noucamp.org/cp2/dbt/DBIntroduction.pdf}}
 \item {\scriptsize\url{https://www.db-book.com/slides-dir/PDF-dir/ch1.pdf}}
 \item {\scriptsize\url{http://infolab.stanford.edu/~ullman/fcdb/ch1.pdf}}
 \item {\scriptsize\url{https://www.ibm.com/topics/cap-theorem}}
+\end{itemize}
+\end{frame}
+
+
+\begin{frame}{Na zamyslenie}
+\begin{itemize}
+\item Pozrite si syntax prvorádových formúl (\href{http://www.dcs.fmph.uniba.sk/texty/dsmain.pdf}{link: kap. 1.3}).
+    Zadefinujte vhodné predikáty a zapíšte formuly zodpovedajúce tvrdeniam zo slajdu o predaji chleba v potravinách.
+\item Dokážte, že si vo formulách vystačíme so symbolmi $\exists$, $\lnot$, $\land$
+    (t.j. netreba ani všeobecný kvantifikátor, ani iné logické spojky; napr. Datalog iné symboly ani nemá).
 \end{itemize}
 \end{frame}
 
