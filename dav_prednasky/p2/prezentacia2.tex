@@ -35,7 +35,7 @@
 \DeclareMathOperator{\answer}{answer}
 
 
-\title{Relačný model a úvod do SQL}
+\title{Relačný model a SQL}
 \author{Ján Mazák}
 \institute{FMFI UK Bratislava}
 \date{}
@@ -85,7 +85,7 @@ Odstránenie duplikátnych záznamov z výsledku dotazu:
 \item Trojhodnotová logika, napr. \verb|NULL OR FALSE| je NULL.
 \item Test, či je hodnota NULL: \verb|x IS NULL| / \verb|x IS NOT NULL|
 \item Pri vytváraní tabuľky možno NULL zakázať.
-Inak treba starostlivo uvažovať, ako ovplyvní operátory a agregačné funkcie (napr. priemer hodnôt v stĺpci).
+Inak treba starostlivo zvažovať, ako ovplyvní operátory a agregačné funkcie (napr. priemer hodnôt v stĺpci).
 Nehádajte, použite dokumentáciu.
 \end{itemize}
 \end{frame}
@@ -96,7 +96,7 @@ Základná štruktúra:
 SELECT attribute1 AS a1, attribute2 AS a2
 FROM table AS t
 WHERE t.attribute2 > 10
-ORDER BY attribute1, attribute2
+ORDER BY a1, a2
 \end{verbatim}
 (Všimnite si, že aliasy a1, a2 nemožno použiť nikde vnútri dotazu. Kľúčové slovo AS je takmer všade nepovinné.)
 \end{frame}
@@ -105,7 +105,7 @@ ORDER BY attribute1, attribute2
 \begin{itemize}
 \item Pri kľúčových slovách jazyka SQL sa nerozlišujú malé a veľké písmená,
 ale pre dáta uložené v db áno (ak to nezmeníme napr. použitím ILIKE v podmienke za WHERE).
-\item Case-sensitivity tabuliek a atribútov závisí od DBMS a operačného systému.
+\item Case-sensitivity názvov tabuliek a atribútov závisí od DBMS a operačného systému.
 \item Úvodzovky pre stĺpce: \verb|"atribút s medzerou v názve"|
 \item Apostrofy pre konštantné reťazce: \verb|'reťazec'|
 \end{itemize}
@@ -128,17 +128,25 @@ SELECT
         WHEN e.bonus IS NULL THEN e.salary
         ELSE e.bonus + e.salary
     ) AS total_salary,
-FROM emp AS e
-WHERE deptno >= 20 AND lower(e.firstname) = 'John'
+FROM employee AS e
+WHERE dept_id >= 20 AND lower(e.firstname) = 'john'
 ORDER BY 0.8 * e.salary
 \end{verbatim}
 \end{frame}
 
+\begin{frame}[fragile]{Zoradenie záznamov}
+Zoznam zamestnancov usporiadaný od najvyššieho platu po najnižší, pri rovnakom plate abecedne:
+\begin{alltt}
+SELECT name, salary, department
+FROM employee
+\alert{ORDER BY} salary DESC, name ASC
+\end{alltt}
+\end{frame}
 
 \begin{frame}{Join}
 \alert{Join} --- spojenie záznamov z dvoch tabuliek.\\[3mm]
 
-Je to podmnožina karteziánskeho súčinu tabuliek (každý riadok s každým)
+Je to podmnožina karteziánskeho súčinu tabuliek (každý riadok s každým, dvojicu záznamov spojíme do jedného dlhšieho)
 špecifikovaná dodatočnými podmienkami na prepájanie.
 \end{frame}
 
@@ -163,7 +171,7 @@ Je to podmnožina karteziánskeho súčinu tabuliek (každý riadok s každým)
 \end{frame}
 
 \begin{frame}[fragile]{Negácia}
-Negáciu možno vyjadriť pomocou vnoreného dotazu (subquery) a \alert{NOT EXISTS}:
+Negáciu možno vyjadriť pomocou \alert{NOT EXISTS}:
 \begin{alltt}
 /* zamestnanci, ktorí nemajú podriadených */
 SELECT emp.name FROM employee \blue{emp}
@@ -198,24 +206,54 @@ Postupovať možno v duchu
 $$
     \forall x\ P(x)\qquad \Leftrightarrow\qquad \lnot\ \exists x\ \lnot\, P(x).
 $$
-Zamestnanci, ktorí majú vyšší plat ako \alert{všetci} ostatní $\Leftrightarrow$ zamestnanci, ku ktorým neexistuje zamestnanec s vyšším či rovným platom.
+Zamestnanci, ktorí majú najvyšší plat spomedzi \alert{všetkých} $\Leftrightarrow$ zamestnanci, ku ktorým \alert{neexistuje} zamestnanec s vyšším platom.
 \begin{alltt}
 SELECT e.name
 FROM employee e
 WHERE \blue{NOT EXISTS} (SELECT 1
                   FROM employee e2
-                  WHERE e2.salary >= e.salary)
+                  WHERE e2.salary > e.salary)
 \end{alltt}
 \end{frame}
 
+\begin{frame}[fragile]{Vnorené dotazy (subqueries)}
+Okrem operátora EXISTS sa možno pomocou operátora IN (resp. NOT IN) pýtať na prítomnosť v množine.
+\begin{alltt}
+SELECT name
+FROM employee e
+WHERE e.dept_id \alert{IN} (SELECT dept_id
+                   FROM department d
+                   WHERE d.location = 'New York')
+\end{alltt}
+IN sa optimalizuje horšie ako join a antijoin (NOT EXISTS), dá sa však v prípade potreby prepísať inak.
+IN má tiež nevýhodu, ak sa môže vyskytnúť NULL.
+\end{frame}
+
+\begin{frame}[fragile]{Vnorené dotazy (subqueries)}
+Ak je výsledkom vnoreného dotazu tabuľka 1x1, možno ju použiť ako skalár.
+\begin{alltt}
+SELECT name
+FROM employee e
+WHERE \alert{e.dept_id =} \blue{(SELECT dept_id
+                  FROM department d
+                  WHERE d.location = 'New York')}
+\end{alltt}
+Ak by vo vnorenom dotaze vyšlo viac riadkov (alebo žiaden), dôjde k chybe.\\
+(Takýmto chybám treba čo najviac predchádzať, napr. použitím UNIQUE už pri vytváraní tabuľky.)
+\end{frame}
+
 \begin{frame}{Množinové operácie}
+Bez zachovania násobnosti riadkov (matematické množiny):
 \begin{itemize}
-\item EXCEPT --- rozdiel množín
-\item EXCEPT ALL --- rozdiel množín
-\item UNION --- zjednotenie (bez zachovania duplicity riadkov)
-\item UNION ALL --- zjednotenie (so zachovaním duplicity riadkov)
+\item UNION --- zjednotenie
 \item INTERSECT --- prienik
-\item INTERSECT ALL --- prienik % TODO
+\item EXCEPT --- rozdiel množín
+\end{itemize}
+So zachovaním násobnosti riadkov (multimnožiny):
+\begin{itemize}
+\item UNION ALL --- zjednotenie
+\item INTERSECT ALL --- prienik
+\item EXCEPT ALL --- rozdiel množín
 \end{itemize}
 \end{frame}
 
@@ -244,49 +282,33 @@ FROM stromy
 \end{minipage}
 \end{frame}
 
-\begin{frame}[fragile]{Zoradenie záznamov}
-Zoznam zamestnancov usporiadaný od najvyššieho platu po najnižší, pri rovnakom plate abecedne:
-\begin{alltt}
-SELECT name, salary, department
-FROM employee
-\alert{ORDER BY} salary DESC, name ASC
-\end{alltt}
-\end{frame}
+\begin{frame}[fragile]{Mačky nežerúce myši --- bežná chyba}
+Mačky možno rozdeliť do 4 disjunktných skupín:
+\begin{itemize}
+\item[A.] nežerie nič
+\item[B.] žerie niečo, ale nie myši
+\item[C.] žerie myši, ale nič iné
+\item[D.] žerie myši aj niečo iné
+\end{itemize}
+$\hbox{mačky nežerúce myši} = A\cup B$
+$\hbox{mačky žerúce iné ako myši} = B\cup D$
+\\[3mm]
 
-\begin{frame}[fragile]{Vnorené dotazy (subqueries)}
-Okrem operátora EXISTS sa možno pomocou operátora IN (resp. NOT IN) pýtať na prítomnosť v množine.
-\begin{alltt}
-SELECT name
-FROM employee e
-WHERE e.deptno \alert{IN} (SELECT deptno
-                   FROM department d
-                   WHERE d.location = 'New York')
-\end{alltt}
-IN sa optimalizuje horšie ako join a antijoin (NOT EXISTS), dá sa však v prípade potreby prepísať pomocou iných operátorov.
-\end{frame}
+Ak je dotaz o \uv{mačkách nežerúcich myši} a máme za WHERE \uv{$\hbox{potrava} <> \hbox{myši}$}, asi je to nesprávne.
+Pre určenie toho, či mačka žerie myši, je úplne irelevantná existencia záznamov o tom, že žerie niečo iné ako myši.
 
-\begin{frame}[fragile]{Vnorené dotazy (subqueries)}
-Ak je výsledkom vnoreného dotazu tabuľka 1x1, možno ju použiť ako skalár.
-\begin{alltt}
-SELECT name
-FROM employee e
-WHERE \alert{e.deptno =} \blue{(SELECT deptno
-                  FROM department d
-                  WHERE d.location = 'New York')}
-\end{alltt}
-Ak by vo vnorenom dotaze vyšlo viac riadkov (alebo žiaden), dôjde k chybe.\\
-(Takýmto chybám treba čo najviac predchádzať, napr. použitím UNIQUE už pri vytváraní tabuľky.)
+(Dve množiny popísané vyššie však budú totožné, ak každá mačka žerie práve jednu potravu.)
 \end{frame}
 
 \begin{frame}[fragile]{CREATE TEMPORARY TABLE}
 Používateľ si vie sám vytvoriť dočasnú tabuľku, ktorá zanikne po odpojení od db alebo na konci transakcie.
-(Taká tabuľka nemusí fyzicky existovať, DBMS ju môže pri každom použití nanovo vygenerovať.)
+(Taká tabuľka nemusí fyzicky existovať, DBMS ju môže pri každom použití nanovo vypočítať.)
 \begin{alltt}
 \alert{CREATE TEMPORARY TABLE} \blue{employee_details} AS (
-    SELECT e.empno, e.name, e.deptno,
+    SELECT e.emp_id, e.name, e.dept_id,
            d.name, d.location
     FROM employee e, department d
-    WHERE e.deptno = d.deptno
+    WHERE e.dept_id = d.dept_id
 );
 SELECT * FROM \blue{employee_details} WHERE ...;
 \end{alltt}
@@ -295,19 +317,49 @@ Hodí sa to napr. ak chceme opakovane využívať ten istý komplikovaný join.
 
 
 \begin{frame}[fragile]{VIEW}
-Používateľom možno uľahčiť prístup k dátam vytvorením náhľadu (VIEW), ktorý je iný ako samotné definície tabuliek.
+Prístup k dátam možno uľahčiť vytvorením pohľadu (VIEW).
 \begin{alltt}
 \alert{CREATE VIEW} \blue{employee_details} AS (
-    SELECT e.empno, e.name, e.deptno,
+    SELECT e.emp_id, e.name, e.dept_id,
            d.name, d.location
     FROM employee e, department d
-    WHERE e.deptno = d.deptno
-)
+    WHERE e.dept_id = d.dept_id
+);
 
 SELECT * FROM \blue{employee_details} WHERE ...;
 \end{alltt}
-VIEW je permanentný objekt v db. Možno cezeň aj vkladať dáta, ale nerobte to (veľa komplikácií s NULL).
+VIEW je permanentný objekt v db. Jeho riadky však nemusia byť materializované.
+Možno cezeň aj vkladať dáta, ale nerobte to (veľa komplikácií s NULL).
 \end{frame}
+
+
+\begin{frame}[fragile]{Funkcie pre jednotlivé dátové typy}
+Pri praktickej práci v SQL využívame rôzne funkcie pre špecifické dátové typy.
+\begin{itemize}
+\item dátum a čas
+\item reťazce
+\item numerické výpočty
+\item pretypovanie
+\item \dots
+\item často špecifické pre konkrétny DBMS
+\item nebudeme s nimi strácať čas, ľahko sa rieši za pochodu (dokumentácia / LLM)
+\end{itemize}
+\end{frame}
+
+
+\begin{frame}[fragile]{How to write SQL}
+Zapisujte dotazy čitateľne a zrozumiteľne.\\
+Vyhýbajte sa zápisom vedúcim k neefektívnemu výpočtu.\\[3mm]
+\begin{itemize}
+\item {\scriptsize\url{https://github.com/jarulraj/sqlcheck/blob/master/README.md#query-anti-patterns}}
+\item {\scriptsize\url{https://www.stratascratch.com/blog/best-practices-to-write-sql-queries-how-to-structure-your-code/}}
+\item {\scriptsize\url{https://www.sqlstyle.guide/}}
+\end{itemize}
+\vspace*{3mm}
+Prečítajte si tieto konvencie \emph{teraz} a nezaťažujte budúcich kolegov nevhodnými zápismi.
+(Berte ich však ako odporúčania; rôzne zdroje v niektorých veciach nesúhlasia. Zvyčajne sa pri existujúcom kóde riadime miestnymi konvenciami.)
+\end{frame}
+
 
 \begin{frame}{Literatúra}
 \begin{itemize}
@@ -319,6 +371,17 @@ VIEW je permanentný objekt v db. Možno cezeň aj vkladať dáta, ale nerobte t
 \item {\scriptsize\url{https://www.learnsqlonline.org/}}
 \item {\scriptsize\url{https://www.postgresqltutorial.com/postgresql-views/managing-postgresql-views/}}
 \item {\scriptsize\url{https://drive.google.com/file/d/1HCq2KMZ05UvtXGe1nTqNmkwhc3X-NLI3/view}}
+\end{itemize}
+\end{frame}
+
+
+\begin{frame}{Na zamyslenie}
+\begin{itemize}
+\item Akú časovú zložitosť má výpočet DISTINCT (v závislosti od počtu riadkov za predpokladu, že sa všetky riadky zmestia do RAM)?
+\item Join tabuliek sa dá počítať len z dvoch tabuliek naraz. Ak ich máme viac, join rátame postupne
+    (predstavte si operátorový strom pre binárnu operáciu, v listoch sú pôvodné tabuľky a v koreni výsledok joinu).
+    Koľko je možných postupov na výpočet joinu $4$ tabuliek? Odhadnite počet postupov pre $n$ tabuliek.
+\item Vymyslite postup výpočtu INTERSECT. Akú má časovú zložitosť v závislosti od počtu riadkov relácií na vstupe? (Chcete lepšiu ako kvadratickú zložitosť.)
 \end{itemize}
 \end{frame}
 
