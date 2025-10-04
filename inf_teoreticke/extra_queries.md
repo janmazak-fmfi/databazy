@@ -20,7 +20,7 @@ Queries:
     <summary>datalog</summary>
 
     ```
-        answer(P) :- price(T, A), A < 20, wears(_, T, N), N >= 2.
+        answer(T) :- price(T, A), A < 20, wears(_, T, N), N >= 2.
     ```
     </details>
 
@@ -130,7 +130,7 @@ Queries:
     <summary>datalog</summary>
 
     ```
-        eaten_by_two(M) :- eats(X, M), eats(Y, M), \+ Y = M.
+        eaten_by_two(M) :- eats(X, M), eats(Y, M), \+ X = Y.
         cooks_wrong(A) :- cooks(A, M), eaten_by_two(M).
         answer(A) :- cooks(A, M), \+ eaten_by_two(M), \+ cooks_wrong(A).
     ```
@@ -218,7 +218,7 @@ Queries:
 
         /* another solution */
         SELECT Student FROM enrolled e
-        WHERE NOT EXIST (
+        WHERE NOT EXISTS (
             SELECT 1 FROM enrolled e1, enrolled e2
             WHERE e1.Course = e.Course AND e1.Student <> e2.Student
         )
@@ -231,13 +231,37 @@ Queries:
     <summary>datalog</summary>
 
     ```
-        answer(C) :- fails(_, C), \+ multiple_fails(C).
+        answer(C) :- failed(_, C), \+ multiple_fails(C).
         multiple_fails(C) :- failed(S1, C), failed(S2, C), \+ S1 = S2.
     ```
     </details>
 
 * courses that are failed by no student except one (of all students that are enrolled)
 
+    <details>
+    <summary>datalog</summary>
+
+    ```
+        failed_enrolled(S, C) :- failed(S, C), enrolled(S, C).
+        multiple_enrolled_fails(C) :-
+            failed_enrolled(S1, C),
+            failed_enrolled(S2, C),
+            \+ S1 = S2.
+        answer(C) :- failed_enrolled(_, C), \+ multiple_enrolled_fails(C).
+    ```
+    </details>
+
+    <details>
+    <summary>SQL</summary>
+
+    ```sql
+        SELECT f.Course
+        FROM failed f
+        JOIN enrolled e ON f.Student = e.Student AND f.Course = e.Course
+        GROUP BY f.Course
+        HAVING COUNT(f.Student) = 1;
+    ```
+    </details>
 
 * courses that are passed by someone, and also everyone who does not teach anything but is enrolled in a course
 
@@ -268,13 +292,72 @@ Queries:
     (i.e. the query would need additional clarification to be precise, despite sounding complete).
     </details>
 
+* instructors whose classes consistently attract students with flawless academic records (i.e., find professors such that for every course they teach, there exists at least one student enrolled who has passed every course they have ever been enrolled in)
+
+    <details>
+    <summary>datalog</summary>
+
+    ```
+        % A student is imperfect if they are enrolled in any course they have not passed.
+        imperfect_student(S) :- enrolled(S, C), \+ passed(S, C).
+
+        % A course is "good" if it has at least one perfect student enrolled.
+        has_perfect_student(C) :- enrolled(S, C), \+ imperfect_student(S).
+
+        % A professor teaches a problematic course.
+        problematic_course_for(P) :- teaches(P, C), \+ has_perfect_student(C).
+
+        % The final answer is a professor who teaches something, but does not teach a problematic course.
+        answer(P) :- teaches(P, _), \+ problematic_course_for(P).
+    ```
+    </details>
+
+    <details>
+    <summary>SQL</summary>
+
+    ```sql
+        WITH perfect_students AS (
+            -- those who have passed every course in which they have ever been enrolled.
+            SELECT DISTINCT e1.Student
+            FROM enrolled e1
+            -- A student is perfect if there does NOT EXIST...
+            WHERE NOT EXISTS (
+                -- ...a course they were enrolled in...
+                SELECT 1
+                FROM enrolled e2
+                WHERE e2.Student = e1.Student
+                -- ...that they have NOT passed.
+                AND NOT EXISTS (
+                    SELECT 1
+                    FROM passed p
+                    WHERE p.Student = e2.Student AND p.Course = e2.Course
+                )
+            )
+        )
+        -- Select professors ...
+        SELECT DISTINCT t1.Professor
+        FROM teaches t1
+        WHERE NOT EXISTS (
+            -- ... which do not have a "problematic course".
+            SELECT t2.Course
+            FROM teaches t2
+            WHERE t2.Professor = t1.Professor
+            AND NOT EXISTS (
+                -- problematic course, i.e. without a perfect student
+                SELECT 1
+                FROM enrolled e
+                JOIN perfect_students ps ON e.Student = ps.Student
+                WHERE e.Course = t2.Course
+            )
+        );
+    ```
+    </details>
+
 ---
 
 Database:
 
 `person(Who), furniture(Item), owns(Who, Item)` (it is possible that the same item is owned by several owners)
-
----
 
 Queries:
 
@@ -733,32 +816,16 @@ Abbreviated attributes: `P = Pijan, A = Alkohol, K = krcma, I = Id_navstevy, M =
 
 Queries:
 
-* krčmy, kde niečo čapujú a bol tam vypitý každý alkohol, čo ľúbia aspoň dvaja pijani
-
-    <details>
-    <summary>datalog</summary>
-
-    ```
-        answer(K) :- capuje(K, _), nevypity_spravny_alkohol(K).
-        nevypity_spravny_alkohol(K) :- lubi(P1, A), lubi(P2, A), \+ P1 = P2,
-                                       capuje(K, _), \+ vypity(K, A).
-        vypity(K, A) :- navstivil(I, _, K), vypil(I, A, _).
-    ```
-    </details>
-
-* pijani, čo ľúbia aspoň jeden alkohol a ľúbia všetky alkoholy, čo niekde čapujú a nikto ich nepil v žiadnej krčme
-
-    <details>
-    <summary>datalog</summary>
-
-    ```
-        answer(P) :- lubi(P, _), \+ nelubi_co_ma(P).
-        nelubi_co_ma(P) :- capuje(_, A), \+ vypity(A), \+ lubi(P, A), lubi(P, _).
-        vypity(A) :- vypil(_, A, _).
-    ```
-    </details>
-
 * pijani, ktorí niečo ľúbia, ale nikdy v krčme nepijú
+
+    <details>
+    <summary>datalog</summary>
+
+    ```
+        has_drunk(P) :- navstivil(I, P, _), vypil(I, _, _).
+        answer(P) :- lubi(P, _), \+ has_drunk(P).
+    ```
+    </details>
 
     <details>
     <summary>SQL</summary>
@@ -774,7 +841,172 @@ Queries:
     ```
     </details>
 
-* pijani, čo už pili, a pri každej návšteve krčmy vypijú aspoň liter nejakého (jedného) alkoholu
+* krčmy, kde niečo čapujú a bol tam vypitý každý alkohol, čo ľúbia aspoň dvaja pijani
+
+    <details>
+    <summary>datalog</summary>
+
+    ```
+        answer(K) :- capuje(K, _), \+ nevypity_spravny_alkohol(K).
+        nevypity_spravny_alkohol(K) :- lubi(P1, A), lubi(P2, A), \+ P1 = P2,
+                                       capuje(K, _), \+ vypity(K, A).
+        vypity(K, A) :- navstivil(I, _, K), vypil(I, A, _).
+    ```
+    </details>
+
+    <details>
+    <summary>SQL</summary>
+
+    ```sql
+        WITH special_alcohols AS (
+            -- This CTE finds "special" alcohols liked by at least two drinkers
+            SELECT A
+            FROM lubi
+            GROUP BY A
+            HAVING COUNT(P) >= 2
+        )
+        SELECT DISTINCT c.K
+        FROM capuje c
+        WHERE NOT EXISTS (
+            -- Check if there is any special alcohol...
+            SELECT 1
+            FROM special_alcohols sa
+            -- ...that was NOT drunk in pub K
+            WHERE NOT EXISTS (
+                SELECT 1
+                FROM navstivil n
+                JOIN vypil v ON n.I = v.I
+                WHERE n.K = c.K AND v.A = sa.A
+            )
+        );
+
+        /* another solution */
+        WITH special_alcohols AS (
+            -- 1. Find all alcohols liked by at least two drinkers
+            SELECT A
+            FROM lubi
+            GROUP BY A
+            HAVING COUNT(P) >= 2
+        ),
+        pub_special_drinks AS (
+            -- 2. Find each time a "special" alcohol was served in any pub
+            SELECT DISTINCT n.K, v.A
+            FROM navstivil n
+            JOIN vypil v ON n.I = v.I
+            JOIN special_alcohols sa ON v.A = sa.A
+        )
+        -- 3. Find pubs where the count of distinct special drinks served
+        --    is equal to the total number of special drinks that exist.
+        SELECT K
+        FROM pub_special_drinks
+        GROUP BY K
+        HAVING COUNT(A) = (SELECT COUNT(A) FROM special_alcohols);
+    ```
+    </details>
+
+* pijani, čo ľúbia aspoň jeden alkohol a ľúbia všetky alkoholy, čo niekde čapujú a nikto ich nepil v žiadnej krčme
+
+    <details>
+    <summary>datalog</summary>
+
+    ```
+        answer(P) :- lubi(P, _), \+ nelubi_co_ma(P).
+        nelubi_co_ma(P) :- capuje(_, A), \+ vypity(A), \+ lubi(P, A), lubi(P, _).
+        vypity(A) :- vypil(_, A, _).
+    ```
+    </details>
+
+    <details>
+    <summary>SQL</summary>
+
+    ```sql
+        -- First, create a view or CTE for the special alcohols
+        WITH UnpopularAlcohol AS (
+            SELECT DISTINCT A FROM capuje
+            EXCEPT
+            SELECT DISTINCT A FROM vypil
+        )
+        -- Now, find the drinkers who like all of them
+        SELECT DISTINCT l.P
+        FROM lubi l
+        WHERE NOT EXISTS (
+            -- Find an unpopular alcohol...
+            SELECT 1
+            FROM UnpopularAlcohol ua
+            -- ...that this drinker does NOT like
+            WHERE NOT EXISTS (
+                SELECT 1
+                FROM lubi l2
+                WHERE l2.P = l.P AND l2.A = ua.A
+            )
+        );
+    ```
+    </details>
+
+* pijani, čo ľúbia aspoň jeden alkohol a ľúbia všetky alkoholy, čo v nejakej krčme čapujú, ale nikto ich v nej nepil
+
+    <details>
+    <summary>datalog</summary>
+
+    ```
+        % 1. Helper rule: Identify which alcohols (A) were drunk in which pubs (K).
+        drunk_in_pub(K, A) :- navstivil(I, _, K), vypil(I, A, _).
+
+        % 2. Helper rule: Define a "special" alcohol (A).
+        %    An alcohol is special if it's served in some pub K,
+        %    but has NOT been drunk in that same pub K.
+        special_alcohol(A) :- capuje(K, A), \+ drunk_in_pub(K, A).
+
+        % 3. Helper rule: Identify drinkers (P) who FAIL the main condition.
+        %    A drinker fails if there exists a special alcohol A that they do not like.
+        fails_condition(P) :- special_alcohol(A), lubi(P, _), \+ lubi(P, A).
+
+        answer(P) :- lubi(P, _), \+ fails_condition(P).
+    ```
+    </details>
+
+    <details>
+    <summary>SQL</summary>
+
+    ```sql
+        WITH
+          -- 1. Find the set of all "special" alcohols. A special alcohol is one that is served
+          -- in at least one pub where it has never been consumed.
+          special_alcohols AS (
+            SELECT DISTINCT c.A
+            FROM capuje c
+            WHERE NOT EXISTS (
+              SELECT 1
+              FROM navstivil n
+              JOIN vypil v ON n.I = v.I
+              WHERE n.K = c.K AND v.A = c.A
+            )
+          )
+        -- 2. Find drinkers who like EVERY alcohol from the special_alcohols set.
+        SELECT l.P
+        FROM lubi l
+            JOIN special_alcohols sa ON l.A = sa.A
+        GROUP BY l.P
+        -- The HAVING clause is the key: it ensures the drinker likes ALL of them.
+        HAVING COUNT(l.A) = (
+            SELECT COUNT(A)
+            FROM special_alcohols
+        );
+    ```
+    </details>
+
+* pijani, čo už pili, a pri každej návšteve krčmy vypijú aspoň liter jedného alkoholu (pri rôznych návštevách môže byť ten alkohol rôzny)
+
+    <details>
+    <summary>datalog</summary>
+
+    ```
+        drank_a_liter(I) :- vypil(I, _, M), M >= 1.
+        bad_visit(P) :- navstivil(I, P, _), \+ drank_a_liter(I).
+        answer(P) :- navstivil(_, P, _), \+ bad_visit(P).
+    ```
+    </details>
+
 
     <details>
     <summary>SQL</summary>
@@ -791,13 +1023,8 @@ Queries:
                 WHERE v2.I = n2.I and v2.M >= 1
             )
         )
-    ```
-    </details>
 
-    <details>
-    <summary>SQL2</summary>
-
-    ```sql
+        /* another solution */
         SELECT n.P
         FROM navstivil n, vypil v
         WHERE n.I = v.I AND NOT EXISTS (
