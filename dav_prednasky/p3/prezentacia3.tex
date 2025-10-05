@@ -103,15 +103,17 @@ FROM employee e
 \end{frame}
 
 \begin{frame}[fragile]{Agregácia}
-Do skupín možno deliť aj podľa viacerých atribútov súčasne (riadky v skupine sa musia zhodovať na všetkých).
+Do skupín možno deliť aj podľa viacerých atribútov súčasne (riadky v skupine sa musia zhodovať na všetkých) alebo podľa nejakej vypočítanej hodnoty.
 \begin{alltt}
-/* počet zamestnancov v skupinách podľa platu
+/* počet zamestnancov v skupinách
+podľa platu zaokrúhleného na stovky
 v jednotlivých oddeleniach */
 
-SELECT d.name, d.salary, \alert{COUNT}(e.emp_id) AS c
+SELECT d.name, ROUND(e.salary, -2) AS salary,
+    \alert{COUNT}(e.emp_id) AS c
 FROM employee e
     JOIN department d ON e.dept_id = d.dept_id
-\alert{GROUP BY} d.dept_id, d.name, e.salary
+\alert{GROUP BY} d.dept_id, d.name, ROUND(e.salary, -2)
 \end{alltt}
 \end{frame}
 
@@ -125,33 +127,21 @@ Napríklad:
 \end{itemize}
 \end{frame}
 
-\begin{frame}[fragile]{Agregácia --- chyby}
-Vnáranie agregovaných funkcií je neprípustné:
+\begin{frame}[fragile]{Agregácia --- GROUPING SETS}
+Možnosť viac GROUP BY v jednom dotaze:
 \begin{alltt}
-SELECT \alert{MAX(COUNT(...))} ...
-
-/* správne: najprv COUNT,
-   potom MAX v ďalšom SELECTe */
+SELECT region, product, SUM(sales)
+FROM sales
+GROUP BY \alert{GROUPING SETS} (
+  (region),          --- Sales by region
+  (product),         --- Sales by product
+  (region, product), --- Sales by region and product
+  ()                 --- Grand total
+)
 \end{alltt}
-\vspace{10mm}
-Agregačnú funkciu nemožno aplikovať priamo na reláciu:
-\begin{alltt}
-WHERE x = \alert{MAX(r)} ...
-
-/* správne: x = (SELECT MAX(...) FROM r) */
-\end{alltt}
+Vhodné na rýchlejšie generovanie reportov.\\
+Špeciálne prípady CUBE a ROLLUP.
 \end{frame}
-
-\begin{frame}[fragile]{Agregácia --- chyby}
-Dvojitá agregácia sa veľmi ťažko číta, neraz nefunguje (kvôli duplicite hodnôt vznikajúcej pri karteziánskom súčine) a je zdrojom chýb:
-\begin{alltt}
-FROM r, s
-...
-HAVING COUNT(r.x) = COUNT(s.y)
-/* lepšie rozdeliť do osobitných SELECTov */
-\end{alltt}
-\end{frame}
-
 
 \begin{frame}[fragile]{WITH --- Common Table Expressions (CTE)}
 WITH vytvorí reláciu existujúcu len počas výpočtu dotazu.
@@ -187,6 +177,50 @@ WHERE ppa.c = (
 \bigskip
 \end{frame}
 
+\begin{frame}[fragile]{Agregácia --- chyby}
+Pri výpočte \alert{arg max} nemožno použiť ORDER BY a LIMIT, pretože LIMIT vedie k fixnému počtu záznamov vo výsledku
+a dopredu nevieme, pre koľko záznamov sa maximum nadobúda.
+\\[5mm]
+
+Pomocou ORDER BY a LIMIT 1 možno nájsť samotné maximum,
+nie je to však vhodný spôsob:
+\begin{itemize}
+\item úmysel takého dotazu je skrytý (ORDER BY a LIMIT sa používajú najmä na niečo iné, čiže akoby ste pomocou špecifického LIMIT 1 menili význam ORDER BY)
+\item výpočet je neefektívny (treba uložiť celý medzivýsledok, možno aj na disk, ak je veľký; až tak možno aplikovať ORDER BY)
+\end{itemize}
+\end{frame}
+
+\begin{frame}[fragile]{Agregácia --- chyby}
+Vnorenie agregovaných funkcií je neprípustné:
+\begin{alltt}
+SELECT \alert{MAX(COUNT(...))} ...
+
+/* správne: najprv COUNT,
+   potom MAX v ďalšom SELECTe */
+\end{alltt}
+\vspace{10mm}
+Agregačnú funkciu nemožno aplikovať priamo na reláciu:
+\begin{alltt}
+WHERE x = \alert{MAX(r)} ...
+
+/* správne: x = (SELECT MAX(...) FROM r) */
+\end{alltt}
+\end{frame}
+
+\begin{frame}[fragile]{Agregácia --- chyby}
+Dvojitá agregácia sa ťažko číta, neraz nefunguje (kvôli duplicite hodnôt vznikajúcej pri karteziánskom súčine) a je zdrojom chýb:
+\begin{alltt}
+FROM r, s
+...
+HAVING COUNT(r.x) = COUNT(s.y)
+
+/* lepšie rozdeliť do osobitných SELECTov
+a použiť join alebo jednu z agregácií
+vypočítať vopred */
+\end{alltt}
+\end{frame}
+
+
 \begin{frame}[fragile]{Vnorené dotazy (subqueries)}
 Podľa toho, či výsledok vnoreného dotazu závisí od riadka, pre ktorý sa vyhodnocuje WHERE, rozlišujeme:
 \begin{itemize}
@@ -194,54 +228,25 @@ Podľa toho, či výsledok vnoreného dotazu závisí od riadka, pre ktorý sa v
 \item \alert{korelované} --- zavisí
 \end{itemize}
 Nekorelované dotazy stačí počítať raz, kým korelované musíme počítať pre každý riadok nanovo.
-Navyše narúšajú optimalizáciu (prepis dotazu do výpočtovo výhodnejšej podoby), 
+Navyše narúšajú optimalizáciu (prepis dotazu do výpočtovo výhodnejšej podoby),
 pretože vo všeobecnosti je ťažké hľadať súvis medzi programom a podprogramom.
 Korelované vnorené dotazy sú preto niekedy veľmi pomalé; vyhýbajte sa im.
 \end{frame}
 
-\begin{frame}[fragile]{Vnorené dotazy --- NOT IN}
-\footnotesize
-\emph{Zamestnanci, ktorých nadriadený nie je priamym podriadeným prezidenta.}\\[7mm]
-\begin{minipage}{.4\pdfpagewidth}
-\alert{Un}correlated subquery: $10^5$
-\footnotesize
-\begin{alltt}
-SELECT e.emp_id, e.superior
-FROM employee e
-WHERE \blue{e.superior NOT IN} (
-  SELECT \blue{s.emp_id}
-  FROM employee s
-  JOIN employee p
-    ON s.superior = p.emp_id
-  WHERE p.job = 'president'
-);
+\begin{frame}[fragile]{Vnorené dotazy (subqueries)}
+Vnorené dotazy využívajúce IN, NOT IN, ANY, ALL apod. možno prepísať pomocou joinu alebo \alert{antijoinu}.
+Antijoin počíta tie riadky z ľavej tabuľky, ktoré sa nejoinujú so žiadnymi riadkami pravej tabuľky.
+\bigskip
 
-\end{alltt}
-\end{minipage}
-\hfill\vline\hfill
-\begin{minipage}{.4\pdfpagewidth}
-Antijoin: $10^5$
-\footnotesize
-\begin{alltt}
-SELECT e.emp_id, e.superior
-FROM employee e
-WHERE \blue{NOT EXISTS} (
-  SELECT 1
-  FROM employee s
-  JOIN employee p
-    ON s.superior = p.emp_id
-  WHERE p.job = 'president'
-    \blue{AND s.emp_id = e.superior}
-);
-\end{alltt}
-\end{minipage}
+Podobne ako join ho možno počítať \emph{rýchlo} --- napr. cez triedenie alebo hashovanie.
+Pre korelované vnorené dotazy takúto optimalizáciu DBMS zväčša spraviť nevie.
 \end{frame}
 
 \begin{frame}[fragile]{Vnorené dotazy --- scalar subquery}
 \footnotesize
 \emph{Zamestnanci zarábajúci viac ako priemer v ich oddelení.}\\[7mm]
 \begin{minipage}{.4\pdfpagewidth}
-Correlated subquery: $10^{10}$
+Correlated subquery:
 \footnotesize
 \begin{alltt}
 SELECT e.emp_id, e.salary
@@ -249,7 +254,7 @@ FROM employee e
 WHERE \blue{e.salary >} (
   SELECT AVG(e2.salary)
   FROM employee e2
-  WHERE e2.dept_id = 
+  WHERE e2.dept_id =
     e.dept_id
 );
 
@@ -259,7 +264,7 @@ WHERE \blue{e.salary >} (
 \end{minipage}
 \hfill\vline\hfill
 \begin{minipage}{.4\pdfpagewidth}
-Join: $10^{5}$
+Join:
 \footnotesize
 \begin{alltt}
 WITH dept_avg AS (
@@ -277,11 +282,49 @@ WHERE \blue{e.salary >} da.avg_salary;
 \end{minipage}
 \end{frame}
 
+\begin{frame}[fragile]{Vnorené dotazy --- NOT IN}
+\footnotesize
+\emph{Zamestnanci, ktorých nadriadený nie je priamym podriadeným prezidenta.}\\[7mm]
+\begin{minipage}{.4\pdfpagewidth}
+\alert{Un}correlated subquery:
+\footnotesize
+\begin{alltt}
+SELECT e.emp_id, e.superior
+FROM employee e
+WHERE \blue{e.superior NOT IN} (
+  SELECT \blue{s.emp_id}
+  FROM employee s ----superior
+  JOIN employee p ----president
+    ON s.superior = p.emp_id
+  WHERE p.job = 'president'
+);
+
+\end{alltt}
+\end{minipage}
+\hfill\vline\hfill
+\begin{minipage}{.4\pdfpagewidth}
+Antijoin:
+\footnotesize
+\begin{alltt}
+SELECT e.emp_id, e.superior
+FROM employee e
+WHERE \blue{NOT EXISTS} (
+  SELECT 1
+  FROM employee s
+  JOIN employee p
+    ON s.superior = p.emp_id
+  WHERE p.job = 'president'
+    \blue{AND s.emp_id = e.superior}
+);
+\end{alltt}
+\end{minipage}
+\end{frame}
+
 \begin{frame}[fragile]{Vnorené dotazy --- ALL}
 \footnotesize
 \emph{Zamestnanci zarábajúci viac ako všetci ich podriadení.}\\[7mm]
 \begin{minipage}{.4\pdfpagewidth}
-Correlated subquery: $10^{11}$
+Correlated subquery:
 \footnotesize
 \begin{alltt}
 SELECT e.name
@@ -296,7 +339,7 @@ WHERE e.salary > \blue{ALL} (
 \end{minipage}
 \hfill\vline\hfill
 \begin{minipage}{.4\pdfpagewidth}
-Antijoin: $10^{5}$
+Antijoin:
 \footnotesize
 \begin{alltt}
 SELECT e.name
@@ -313,14 +356,14 @@ WHERE NOT EXISTS (
 
 \begin{frame}[fragile]{Vnorené dotazy --- ANY}
 \footnotesize
-\emph{Zamestnanci zarábajúci viac ako nejaký ich podriadený.}\\[7mm]
+\emph{Zamestnanci zarábajúci menej ako nejaký ich podriadený.}\\[7mm]
 \begin{minipage}{.4\pdfpagewidth}
-Correlated subquery: $10^{11}$
+Correlated subquery:
 \footnotesize
 \begin{alltt}
 SELECT e.name
 FROM employee e
-WHERE e.salary > \blue{ANY} (
+WHERE e.salary < \blue{ANY} (
   SELECT s.salary
   FROM employee s
   WHERE s.superior = e.emp_id
@@ -329,14 +372,14 @@ WHERE e.salary > \blue{ANY} (
 \end{minipage}
 \hfill\vline\hfill
 \begin{minipage}{.4\pdfpagewidth}
-Join: $10^{5}$
+Join:
 \footnotesize
 \begin{alltt}
-SELECT e.name
+SELECT DISTINCT e.name
 FROM employee e
   JOIN employee sub
     ON sub.superior = e.emp_id
-WHERE e.salary > sub.salary;
+WHERE e.salary < sub.salary;
 
 
 \end{alltt}
@@ -348,9 +391,9 @@ Nevýhody correlated subquery:
 \begin{itemize}
 \item Niekedy horšia čitateľnosť (inokedy lepšia).
 \item Ťažšie debugovanie (lebo korelovaný dotaz nie je sám osebe zmysluplný a je previazaný s kontextom).
-\item Komplexita sťažuje budúce udržiavanie/modifikáciu kódu.
+\item Zložitosť sťažuje budúce udržiavanie/modifikáciu kódu.
 \item Horšie využívanie existujúcich indexov (vytvorenie ad-hoc zoznamu pre IN, ALL atď. preruší prepojenie na existujúce tabuľky).
-\item Prekážka pre optimalizáciu (ťažko sa hľadá alternatívny spôsob výpočtu); čím viac dát, tým väčší problém.
+\item Prekážka pre optimalizáciu (ťažko sa hľadá rýchly spôsob výpočtu); čím viac dát, tým väčší problém.
 \item Treba si strážiť prítomnosť NULL.
 \end{itemize}
 \end{frame}
@@ -383,12 +426,25 @@ WHERE outer_query.total_salary > 60000;
 \end{alltt}
 \end{frame}
 
+
 \begin{frame}{Literatúra}
 \begin{itemize}
 \item {\scriptsize\url{https://www.postgresqltutorial.com/postgresql-aggregate-functions/}}
 \item {\scriptsize\url{https://www.postgresqltutorial.com/} (Sections 4, 5, 7)}
 \item {\scriptsize\url{https://learnsql.com/blog/error-with-group-by/}}
 \item {\scriptsize\url{https://www.postgresql.org/docs/current/functions-aggregate.html}}
+\end{itemize}
+\end{frame}
+
+
+\begin{frame}[fragile]{Na zamyslenie}
+\begin{itemize}
+\item Prejdite si túto prezentáciu pred každým písaním dotazov, najmä ukážky chýb a vhodných postupov.
+    Niektorí študenti tieto chyby opakujú celý rok, vrátane písomky, ktorú potom musia písať opakovane.
+\item Aký je rozdiel medzi filtrovaním pomocou HAVING a WHERE?
+\item Aký je rozdiel medzi \verb|COUNT(x)| a \verb|COUNT(DISTINCT x)|\\
+    z hľadiska výsledku a rýchlosti výpočtu?
+\item Ako by sme spočítali počet zamestnancov, ktorých mená začínajú jednotlivými písmenami abecedy?
 \end{itemize}
 \end{frame}
 
