@@ -221,7 +221,7 @@ vypočítať vopred */
 \end{frame}
 
 
-\begin{frame}[fragile]{Vnorené dotazy (subqueries)}
+\begin{frame}[fragile]{Vnorené dotazy (inner/nested query, subquery)}
 Podľa toho, či výsledok vnoreného dotazu závisí od riadka, pre ktorý sa vyhodnocuje WHERE, rozlišujeme:
 \begin{itemize}
 \item \alert{nekorelované} --- nezávisí
@@ -230,16 +230,182 @@ Podľa toho, či výsledok vnoreného dotazu závisí od riadka, pre ktorý sa v
 Nekorelované dotazy stačí počítať raz, kým korelované musíme počítať pre každý riadok nanovo.
 Navyše narúšajú optimalizáciu (prepis dotazu do výpočtovo výhodnejšej podoby),
 pretože vo všeobecnosti je ťažké hľadať súvis medzi programom a podprogramom.
-Korelované vnorené dotazy sú preto niekedy veľmi pomalé; vyhýbajte sa im.
+Korelované vnorené dotazy sú preto niekedy veľmi pomalé.
 \end{frame}
 
-\begin{frame}[fragile]{Vnorené dotazy (subqueries)}
-Vnorené dotazy využívajúce IN, NOT IN, ANY, ALL apod. možno prepísať pomocou joinu alebo \alert{antijoinu}.
+\begin{frame}[fragile]{Vnorené dotazy}
+Vnorené dotazy využívajúce IN, NOT IN, ANY, ALL apod. možno prepísať pomocou joinu alebo \alert{antijoinu} (WHERE NOT EXISTS).
 Antijoin počíta tie riadky z ľavej tabuľky, ktoré sa nejoinujú so žiadnymi riadkami pravej tabuľky.
 \bigskip
 
-Podobne ako join ho možno počítať \emph{rýchlo} --- napr. cez triedenie alebo hashovanie.
+Antijoin možno počítať podobne ako join \emph{rýchlo} --- napr. cez triedenie alebo hashovanie.
 Pre korelované vnorené dotazy takúto optimalizáciu DBMS zväčša spraviť nevie.
+\bigskip
+
+\uv{Najhorší} prípad: vnorený dotaz sa počíta úplne oddelene od vonkajšieho,
+napr. pre IN sa najprv zostaví celý zoznam hodnôt, hoci z nich nakoniec potrebujeme len jednu.
+V pláne výpočtu reprezentované ako \alert{SubPlan}.
+\end{frame}
+
+\begin{frame}[fragile]{Vnorené dotazy}
+DBMS sa \alert{nepodarilo} optimalizovať IN cez JOIN.
+\medskip
+
+\begin{scriptsize}
+\begin{alltt}
+/* employees working in the same department as their superior */
+SELECT e1.name FROM employee e1
+WHERE e1.superior IS NOT NULL AND e1.dept_id IN (
+    SELECT e2.dept_id FROM employee e2
+    WHERE e2.emp_id = e1.superior
+);
+\end{alltt}
+\end{scriptsize}
+\smallskip
+\begin{small}
+\begin{alltt}
+Seq Scan on employee e1
+  Filter: ((superior IS NOT NULL) AND (SubPlan 1))
+  \alert{SubPlan} 1
+    ->  Seq Scan on employee e2
+        Filter: (emp_id = e1.superior)
+
+
+\end{alltt}
+\end{small}
+\end{frame}
+
+\begin{frame}[fragile]{Vnorené dotazy}
+DBMS sa \alert{podarilo} optimalizovať IN cez rýchly JOIN.
+\medskip
+
+\begin{scriptsize}
+\begin{alltt}
+/* employees working in the same department as their superior */
+SELECT e1.name FROM employee e1
+WHERE e1.superior IS NOT NULL AND e1.dept_id IN (
+    SELECT e2.dept_id FROM employee e2
+    WHERE e2.emp_id = e1.superior
+);
+\end{alltt}
+\end{scriptsize}
+\smallskip
+\begin{small}
+\begin{alltt}
+\alert{Hash Join}
+  Hash Cond: (e2.emp_id = e1.superior)
+  Join Filter: (e2.dept_id = e1.dept_id)
+  ->  Seq Scan on employee e1
+        Filter: (superior IS NOT NULL)
+  ->  Hash
+        ->  Seq Scan on employee e2
+\end{alltt}
+\end{small}
+\end{frame}
+
+\begin{frame}[fragile]{Vnorené dotazy --- NULL v NOT IN}
+Dotaz vracia \alert{prázdny} výsledok kvôli NULL v NOT IN.
+\medskip
+
+\begin{scriptsize}
+\begin{alltt}
+/* employees who are not superiors */
+SELECT e1.name FROM employee e1
+WHERE e1.emp_id NOT IN (
+    SELECT e2.superior FROM employee e2
+);
+\end{alltt}
+\end{scriptsize}
+\smallskip
+Podmienka NOT IN sa vyhodnotí ako
+\begin{small}
+\begin{alltt}
+e1.emp_id <> id1 AND e1.emp_id <> id2 AND ...
+  ... AND \alert{e1.emp_id <> NULL}
+\end{alltt}
+\end{small}
+\smallskip
+Pretože x <> NULL sa vyhodnotí ako UNKNOWN, celá podmienka
+zlyhá a dotaz nevráti žiadne riadky.
+\end{frame}
+
+\begin{frame}[fragile]{Vnorené dotazy --- NULL v NOT IN}
+Operátor NOT EXISTS \alert{správne spracuje NULL}.
+\medskip
+
+\begin{scriptsize}
+\begin{alltt}
+/* employees who are not superiors (correct version) */
+SELECT e1.name FROM employee e1
+WHERE NOT EXISTS (
+    SELECT 1 FROM employee e2
+    WHERE e2.superior = e1.emp_id
+);
+\end{alltt}
+\end{scriptsize}
+\smallskip
+Ak e2.superior je NULL, podmienka\\
+\verb|    e2.superior = e1.emp_id|\\
+sa nevyhodnotí ako TRUE, takže dotaz funguje správne.
+\end{frame}
+
+\begin{frame}[fragile]{Vnorené dotazy --- NOT EXISTS vs. EXCEPT}
+NOT EXISTS vždy možno ekvivalentne prepísať cez \alert{EXCEPT}.
+Niekedy je to zrozumiteľnejšie.
+\medskip
+
+\begin{scriptsize}
+\begin{alltt}
+/* version with NOT EXISTS */
+SELECT e1.name FROM employee e1
+WHERE NOT EXISTS (
+    SELECT 1 FROM employee e2
+    WHERE e2.superior = e1.emp_id
+);
+
+/* equivalent version with EXCEPT */
+SELECT e.emp_id, e.name
+FROM employee e
+\alert{EXCEPT}
+SELECT e.emp_id, e.name
+FROM employee e
+    JOIN employee s ON e.emp_id = s.superior;
+\end{alltt}
+\end{scriptsize}
+\smallskip
+(Prečo nerobíme množinový rozdiel len pre mená, ale pridali sme aj id?)
+\end{frame}
+
+\begin{frame}[fragile]{Vnorené dotazy}
+\begin{scriptsize}
+Kombinácia EXCEPT a NOT EXISTS neraz čitateľnejšia ako vnáranie NOT EXISTS.\\
+(Rýchlosť závisí od obsahu tabuliek; porovnanie je komplikované.)
+\medskip
+
+\begin{alltt}
+SELECT d.dept_id FROM department d
+    WHERE NOT EXISTS (
+      SELECT job FROM employee j
+      WHERE NOT EXISTS (
+          SELECT 1 FROM employee e
+          WHERE e.dept_id = d.dept_id AND e.job = j.job
+      )
+    );
+
+/* verzia kombinujúca NOT EXISTS a EXCEPT */
+---- všetky oddelenia
+SELECT dept_id FROM department
+
+EXCEPT
+
+---- oddelenia, ktorým chýba aspoň jedno povolanie
+SELECT d.dept_id FROM department d, employee j
+WHERE NOT EXISTS (
+    SELECT 1 FROM employee e
+    WHERE e.dept_id = d.dept_id AND e.job = j.job
+);
+\end{alltt}
+\end{scriptsize}
 \end{frame}
 
 \begin{frame}[fragile]{Vnorené dotazy --- scalar subquery}
@@ -386,16 +552,18 @@ WHERE e.salary < sub.salary;
 \end{minipage}
 \end{frame}
 
-\begin{frame}{Vnorené dotazy}
-Nevýhody correlated subquery:
+\begin{frame}{Vnorené dotazy --- zhrnutie}
+Nevýhody IN, NOT IN, ANY, ALL:
 \begin{itemize}
-\item Niekedy horšia čitateľnosť (inokedy lepšia).
-\item Ťažšie debugovanie (lebo korelovaný dotaz nie je sám osebe zmysluplný a je previazaný s kontextom).
-\item Zložitosť sťažuje budúce udržiavanie/modifikáciu kódu.
-\item Horšie využívanie existujúcich indexov (vytvorenie ad-hoc zoznamu pre IN, ALL atď. preruší prepojenie na existujúce tabuľky).
 \item Prekážka pre optimalizáciu (ťažko sa hľadá rýchly spôsob výpočtu); čím viac dát, tým väčší problém.
+\item Horšie využívanie existujúcich indexov (vytvorenie ad-hoc zoznamu pre IN, ALL atď. preruší prepojenie na existujúce tabuľky).
 \item Treba si strážiť prítomnosť NULL.
 \end{itemize}
+\bigskip
+
+Používajte radšej WHERE NOT EXISTS či EXCEPT
+(a pre zložitý vnorený dotaz si skúste pripraviť pomocnú tabuľku so zmysluplným názvom cez WITH ---
+to pri optimalizácii vôbec neprekáža, keďže ide len o deklaráciu a DBMS nemá povinnosť ju materializovať).
 \end{frame}
 
 \begin{frame}[fragile]{Vnorené dotazy za FROM --- fuj, radšej WITH}

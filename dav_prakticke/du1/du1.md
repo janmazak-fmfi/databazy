@@ -36,7 +36,7 @@ jedno posedenie. Usporiadajte ich podľa P a A.
 
 (d) *Držgroš* je pijan, ktorý pri ľubovoľnej návšteve krčmy je ochotný vypiť len najlacnejší alkohol z tých, ktoré tá krčma čapuje a ktoré on zároveň ľúbi (ak je takých viac, môže piť ľubovoľný), a aj to len vtedy, ak zatiaľ nepozná (t.j. predtým nenavštívil) krčmu, ktorá ten alkohol čapuje lacnejšie (piť však nemusí vôbec). Nájdite všetkých držgrošov a usporiadajte ich podľa abecedy. (Patria medzi nich aj abstinenti. Vo výsledku chceme len pijanov, ktorí aspoň raz navštívili krčmu. Predpokladáme, že ceny alkoholov sa nikdy nemenia.)
 
-_Vyhýbajte sa korelovaným vnoreným dotazom (radšej použite antijoin, čiže WHERE NOT EXISTS), zväčša sú pomalé!_
+_Vyhýbajte sa korelovaným vnoreným dotazom využívajúcim IN a NOT IN, radšej použite WHERE NOT EXISTS či EXCEPT._
 
 ### Technické pokyny
 
