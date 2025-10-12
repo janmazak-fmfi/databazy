@@ -4,17 +4,16 @@
 \usetheme{default}
 \usecolortheme{crane}
 
-\usepackage[utf8x]{inputenc}
+\usepackage[utf8]{inputenc}
 \usepackage[T1]{fontenc}
 \usepackage[slovak]{babel}
-\usepackage{ucs} % unicode
 
-\usepackage{amsmath}
 \usepackage{amsmath, amssymb}
 \usepackage{hyperref, url}
 \usepackage{graphicx}
 \usepackage{array}
 \usepackage{alltt}
+\usepackage{mathtools}
 
 %\setbeamersize{text margin left=1pt,text margin right=1pt}
 \setbeamertemplate{footline}[frame number]
@@ -56,9 +55,91 @@
 \end{frame}
 
 \begin{frame}[fragile]{Relačná algebra}
-\includegraphics[scale=.2]{query1.jpg}
-\includegraphics[scale=.2]{query2.jpg}\\[3mm]
+\begin{minipage}{.45\textwidth}
+\includegraphics[scale=.2]{query3.jpg}
+\end{minipage}
+\begin{minipage}{.5\textwidth}
+\begin{alltt}
+SELECT e.name
+FROM employee AS e
+  JOIN department AS d
+    ON e.dept_id = d.dept_id
+WHERE
+  d.location = 'New York';
+\end{alltt}
+\end{minipage}
+%\includegraphics[scale=.2]{query2.jpg}\\[3mm]
+
+\bigskip
 \tiny{\url{https://dbis-uibk.github.io/relax/calc/gist/379b0fdd72490e8e634bb193f109d4a8}}
+\end{frame}
+
+\begin{frame}[fragile]{Relačná algebra}
+Porovnajte rýchlosť výpočtu:\\
+\begin{minipage}{.45\textwidth}
+\includegraphics[scale=.18]{query3.jpg}
+\end{minipage}
+\begin{minipage}{.45\textwidth}
+\includegraphics[scale=.18]{query4.jpg}
+\end{minipage}
+\end{frame}
+
+\begin{frame}[fragile]{Relačná algebra}
+\begin{minipage}{.45\textwidth}
+\includegraphics[scale=.18]{query3.jpg}
+\end{minipage}
+\begin{minipage}{.45\textwidth}
+\begin{align*}
+& e \coloneqq \rho_e(employee) \\
+& d \coloneqq \rho_d(department) \\
+& \pi_{e.name}(\sigma_{d.location = 'New York'}( \\
+& \phantom{\ \ \ \ } e\bowtie_{e.dept\_id = d.dept\_id} d \\
+& ))
+\end{align*}
+\smallskip
+
+\begin{scriptsize}
+\begin{alltt}
+/* example EXPLAIN output */
+
+Filter: (d.location = 'New York')
+  -> Hash Join
+     Hash Cond: (e.dept_id = d.dept_id)
+     -> Seq Scan on employee e
+     -> Hash
+        -> Seq Scan on department d
+\end{alltt}
+\end{scriptsize}
+\end{minipage}
+\end{frame}
+
+\begin{frame}[fragile]{Relačná algebra}
+\begin{minipage}{.5\textwidth}
+\includegraphics[scale=.18]{query4.jpg}
+\end{minipage}
+\begin{minipage}{.45\textwidth}
+\begin{align*}
+& e \coloneqq \rho_e(employee) \\
+& d \coloneqq \rho_d(department) \\
+& \pi_{e.name}(e \bowtie (\pi_{d.dept\_id}( \\
+& \phantom{\ \ \ \ } \sigma_{d.location = 'New York'}(d) \\
+& )))
+\end{align*}
+\smallskip
+
+\begin{scriptsize}
+\begin{alltt}
+/* example EXPLAIN output */
+
+Hash Join
+  Hash Cond: (e.dept_id = d.dept_id)
+  -> Seq Scan on employee e
+  -> Hash
+    -> Seq Scan on department d
+       Filter: (location = 'New York')
+\end{alltt}
+\end{scriptsize}
+\end{minipage}
 \end{frame}
 
 \begin{frame}[fragile]{Logické operátory}
@@ -67,7 +148,8 @@
     \item $\sigma$ --- selekcia (vyberáme riadky)
     \item $\rho$ --- premenovanie (relácie či atribútu)
     \item $\times$ --- karteziánsky súčin
-    \item $\bowtie$ --- theta-join (natural join / join s podmienkami)
+    \item $\bowtie$ --- natural join
+    \item $\bowtie_\theta$ --- theta-join (join s podmienkou $\theta$)
     \item $\antijoin$ --- antijoin (riadky 1. relácie, ktoré sa nedajú joinovať\\ \hskip 2.5cm so žiadnymi riadkami 2. relácie)
     \item $-, \cup, \cap$ --- rozdiel, zjednotenie, prienik množín
     \item $\Gamma$ or $\gamma$ --- group by
@@ -86,14 +168,14 @@ $$
     \pi_{Alkohol} (\lubi) - \pi_{Alkohol}(\capuje)
 $$
 $$
-    \pi_{lubi.Alkohol} (lubi\antijoin_{lubi.Alkohol = capuje.Alkohol} capuje)
+    \pi_{\lubi.Alkohol} (\lubi\antijoin_{\lubi.Alkohol = \capuje.Alkohol} \capuje)
 $$
 }
 
 2. Počet vypití piva pre jednotlivých pijanov
 \green{
 $$
-    \Gamma_{P, COUNT(Id)\rightarrow C}(\sigma_{Alkohol='pivo'}(\navstivil\join\vypil))
+    \Gamma_{Pijan, COUNT(Id)\rightarrow C}(\sigma_{Alkohol='pivo'}(\navstivil\join\vypil))
 $$
 }
 \end{frame}
@@ -107,12 +189,13 @@ GROUP BY g1, g2
 HAVING h1 AND h2
 \end{alltt}
 $$
-    \pi_{a1, a2, b}(\sigma_{h1\land h2}(\Gamma_{g1, g2, COUNT(a3)\rightarrow b} (r1\bowtie_{c1 \lor c2} r2)))
+    \pi_{a_1, a_2, b}(\sigma_{h_1\land h_2}(\Gamma_{g_1, g_2, COUNT(a_3)\rightarrow b} (r_1\bowtie_{c_1 \lor c_2} r_2)))
 $$
 \bigskip
-$$j := r_1\bowtie_{c_1 \lor c_2} r_2$$
+$$j \coloneqq r_1\bowtie_{c_1 \lor c_2} r_2$$
 $$\pi_{a_1, a_2, b}(\sigma_{h_1\land h_2}(\Gamma_{g_1, g_2, COUNT(a_3)\rightarrow b} (j)))$$
 \end{frame}
+
 
 \begin{frame}{Literatúra}
 \begin{itemize}
@@ -122,6 +205,7 @@ $$\pi_{a_1, a_2, b}(\sigma_{h_1\land h_2}(\Gamma_{g_1, g_2, COUNT(a_3)\rightarro
 \item {\scriptsize\url{https://dbis-uibk.github.io/relax/calc/gist/379b0fdd72490e8e634bb193f109d4a8}}
 \end{itemize}
 \end{frame}
+
 
 \begin{frame}{Úlohy: relačná algebra}
 Databáza: \emph{lubi}(Pijan, Alkohol), \emph{capuje}(Krcma, Alkohol, Cena),
