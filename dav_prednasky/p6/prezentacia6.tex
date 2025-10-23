@@ -47,11 +47,12 @@
 \begin{frame}[fragile]{Disky}
 Klasický pevný disk (HDD)
 \begin{itemize}
-\item dáta sa spracúvajú po stránkach / blokoch (0.5--4kB)
-  (pojmy \emph{page} a \emph{block} budeme voľne zamieňať,\\ v literatúre však môžu označovať rôzne veci)
+\item dáta sa spracúvajú po stránkach / blokoch\\
+  (pojmy \emph{page} a \emph{block} budeme voľne zamieňať, v literatúre však môžu označovať rôzne veci)
+\item veľkosť bloku na disku 0.5--4 kB, v súborovom systéme do 64 kB, PostgreSQL 8 kB
 \item seek time (pohyb hlavy) 2-3 ms
 \item rotational delay (otáčanie platní) 0-4 ms
-\item prenos dát 0.25 ms / 64 kB page
+\item prenos dát 0.25 ms / page
 \end{itemize}
 Niektoré kroky zahŕňajú fyzický pohyb súčiastok, nevieme zrýchliť.\\
 \end{frame}
@@ -71,7 +72,6 @@ Ale spotrebujú menej elektriny.
 \begin{frame}[fragile]{Disky}
 Triky na urýchlenie:
 \begin{itemize}
-\item niektoré operácie možno urýchliť použitím dočasnej vyrovnávacej pamäte (buffering, caching).
 \item uložiť často čítané bloky do cache
 \item načítať vopred bloky, ktoré pravdepodobne bude treba v blízkej budúcnosti
 \item zbierať dáta do vyrovnávacej pamäte (buffer) a zapísať naraz väčšie množstvo
@@ -91,11 +91,13 @@ Magnetické pásky
 \end{frame}
 
 \begin{frame}[fragile]{Logická organizácia dát}
+Dáta v relačnom modeli:
 \begin{itemize}
 \item hodnoty jednotlivých atribútov sú zoskupené do záznamov
 \item záznamy tvoria reláciu
 \item záznamy môžu mať fixnú alebo variabilnú dĺžku
 \end{itemize}
+\vspace*{3mm}
 Ako toto fyzicky reprezentovať na disku?
 \end{frame}
 
@@ -104,7 +106,7 @@ Neusporiadané záznamy v spájanom zozname:
 \begin{itemize}
 \item v každom diskovom bloku niekoľko záznamov a pointer na ďalší blok
 \item sekvenčné vyhľadávanie; trvá $O(n)$, čiže dlho
-\item vkladanie sa dá urýchliť, ak osobitne evidujeme plné bloky a bloky s práznym miestom, v ideálnom prípade je to $O(1)$
+\item vkladanie sa dá urýchliť, ak osobitne evidujeme plné bloky a bloky s prázdnym miestom, v ideálnom prípade je to $O(1)$
 \item mazanie záznamov môže spôsobiť fragmentáciu a predĺžiť vyhľadávanie neúmerne množstvu uložených dát
 \end{itemize}
 \end{frame}
@@ -208,9 +210,9 @@ nepomôže ani dobrá hashovacia funkcia. Riešenie:
 
 
 \begin{frame}[fragile]{Vytvorenie indexu}
-Hash index na vyhľadávanie podľa empno:
+Hash index na vyhľadávanie podľa emp\_id:
 \begin{alltt}
-  \blue{CREATE INDEX ON employee USING HASH (empno);}
+  \blue{CREATE INDEX ON employee USING HASH (emp_id);}
 \end{alltt}
 Index na zabezpečenie unikátnosti mena (B+ strom):
 \begin{alltt}
@@ -220,10 +222,10 @@ Index pre vypočítanú hodnotu (nie priamo atribút relácie):
 \begin{alltt}
   \blue{CREATE INDEX ON employee (lower(name));}
 \end{alltt}
-Index obsahujúci dodatočné dáta (podľa salary nemožno vyhľadávať, iba podľa empno a name):
+Index obsahujúci dodatočné dáta (podľa salary nemožno vyhľadávať, iba podľa emp\_id a name):
 {\small
 \begin{alltt}
-  \blue{CREATE INDEX ON employee (empno, name) INCLUDE (salary);}
+  \blue{CREATE INDEX ON employee (emp_id, name) INCLUDE (salary);}
 \end{alltt}
 }
 \end{frame}
@@ -257,6 +259,16 @@ B+ stromy a indexy
 \begin{itemize}
 \item {\scriptsize\url{https://cs186berkeley.net/notes/note4/}}
 \item {\scriptsize\url{https://www.db-book.com/slides-dir/PDF-dir/ch14.pdf}}
+\end{itemize}
+\end{frame}
+
+
+\begin{frame}{Na zamyslenie}
+\begin{itemize}
+\item Prečo sa v databázových indexoch nepoužívajú binárne stromy?
+\item Aké výhody a nevýhody má pridanie indexu do databázy?
+\item Uveďte príklad dotazu, pri ktorom by použitie indexu spomalilo výpočet (hoci index je navrhnutý dobre a pri iných dotazoch slúži, ako má).
+\item Ako funguje \emph{bitmap index scan}? (PostgreSQL: \href{https://www.postgresql.org/docs/current/indexes-bitmap-scans.html}{link})
 \end{itemize}
 \end{frame}
 

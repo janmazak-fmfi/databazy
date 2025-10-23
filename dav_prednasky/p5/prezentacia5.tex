@@ -57,43 +57,41 @@
 
 \begin{frame}[fragile]{Window functions}
 \begin{alltt}
-SELECT empno, name, deptno, salary,
-       \green{avg}(salary) \alert{OVER (PARTITION BY deptno)} avg_s
+SELECT emp_id, name, dept_id, salary,
+       \green{avg}(salary) \alert{OVER (PARTITION BY dept_id)} avg_s
 FROM employee;
 \end{alltt}
 \begin{alltt}
 \blue{
- empno | name   | deptno | salary  | avg_s
--------------+----------------+----------------+------------------+-----------------------------
-    11 | King   |     10 | 5000.00 | 2600.00
-    13 | Clark  |     10 | 1500.00 | 2600.00
-    24 | Miller |     10 | 1300.00 | 2600.00
-    14 | Jones  |     20 | 2975.00 | 2175.00
-    20 | Ford   |     20 | 3000.00 | 2175.00
-    21 | Smith  |     20 |  800.00 | 2175.00
-    ...
+ emp_id | name   | dept_id | salary  | avg_s
+---------------+----------------+------------------+------------------+-----------------------------
+     11 | King   |      10 | 5000.00 | 2600.00
+     13 | Clark  |      10 | 1500.00 | 2600.00
+     24 | Miller |      10 | 1300.00 | 2600.00
+     14 | Jones  |      20 | 2975.00 | 2175.00
+     ...
 }
 \end{alltt}
 \end{frame}
 
 \begin{frame}[fragile]{Window functions}
 \begin{alltt}
-SELECT deptno, name, salary,
-       \green{rank()} \alert{OVER (PARTITION BY deptno
+SELECT dept_id, name, salary,
+       \green{rank()} \alert{OVER (PARTITION BY dept_id
                     ORDER BY salary DESC)}
 FROM employee;
 \end{alltt}
 \begin{alltt}
 \blue{
- deptno |  name  | salary  | rank
- -------------+----------------+------------------+-------------------------------------------
-     10 | King   | 5000.00 |    1
-     10 | Clark  | 1500.00 |    2
-     10 | Miller | 1300.00 |    3
-     20 | Ford   | 3000.00 |    1
-     20 | Scott  | 3000.00 |    1
-     20 | Jones  | 2975.00 |    3
-     20 | Adams  | 1100.00 |    4
+ dept_id |  name  | salary  | rank
+ ---------------+----------------+------------------+-------------------------------------------
+      10 | King   | 5000.00 |    1
+      10 | Clark  | 1500.00 |    2
+      10 | Miller | 1300.00 |    3
+      20 | Ford   | 3000.00 |    1
+      20 | Scott  | 3000.00 |    1
+      20 | Jones  | 2975.00 |    3
+      20 | Adams  | 1100.00 |    4
     ...
 }
 \end{alltt}
@@ -115,7 +113,7 @@ Funkcie, ktoré možno použiť ako window functions:
 \item Ak vynecháme PARTITION BY, partícia obsahuje všetky riadky výstupu.
 \begin{alltt}
     SELECT salary, sum(salary) \alert{OVER ()}
-    FROM empsalary;
+    FROM employee;
 \end{alltt}
 \vspace*{4mm}
 \pause
@@ -125,7 +123,7 @@ Funkcie, ktoré možno použiť ako window functions:
         sum(salary) OVER \blue{w},
         avg(salary) OVER \blue{w}
     FROM employee
-    \alert{WINDOW \blue{w} AS (PARTITION BY deptno
+    \alert{WINDOW \blue{w} AS (PARTITION BY dept_id
                 ORDER BY salary DESC);
 }
 \end{alltt}
@@ -172,11 +170,11 @@ Databázy bežne podporujú polia (nie však SQLite).\\
 Dátový typ v PostgreSQL:
 \begin{alltt}
   CREATE TABLE x (
-      y  integer[],
-      z  text[3][3]
+      y  integer[4],
+      z  text[][]
   );
 \end{alltt}
-Verzia konformná s SQL štandardom:
+Zápis v súlade s SQL štandardom:
 \begin{alltt}
   CREATE TABLE x (
       y  integer ARRAY[4],
@@ -207,8 +205,9 @@ SELECT * FROM x WHERE 47 = ALL (some_array);
 Pole tiež možno získať aplikovaním agregačnej funkcie.
 \begin{alltt}
 SELECT e.name, \alert{array_agg}(p.name)
-FROM employee e JOIN project p ON p.empno = e.empno
-GROUP BY e.empno, e.name;
+FROM employee e
+    JOIN project p ON p.emp_id = e.emp_id
+GROUP BY e.emp_id, e.name;
 \end{alltt}
 \begin{alltt}
 \blue{
@@ -379,8 +378,8 @@ SELECT * FROM search_graph ORDER BY is_cycle, path;
 \begin{frame}[fragile]{Prehľadávanie grafov}
 SQL po pridaní rekurzie je turingovsky úplný jazyk
 (vyjadríte v ňom riešenie pre všetky veci programovateľné v Pythone či C).
-Náčrt dôkazu a ukážka riešenia problému obchodného cestujúceho:
-\href{https://cdn.oreillystatic.com/en/assets/1/event/27/High%20Performance%20SQL%20with%20PostgreSQL%20Presentation.pdf}{link}
+Náčrt dôkazu a ukážka riešenia zložitých problémov v SQL, napr. ASCII Mandelbrotovej množiny:
+\href{https://stackoverflow.com/questions/900055/is-sql-or-even-tsql-turing-complete}{link}
 \\[5mm]
 \pause
 
@@ -404,17 +403,28 @@ Hierarchické dáta sa však v databázach občas vyskytujú, treba preto mať a
 \end{itemize}
 \end{frame}
 
+
+\begin{frame}{Na zamyslenie}
+\begin{itemize}
+\item Dá sa každá rekurzia zapísať pomocou iterácie?\\ A čo iterácia pomocou rekurzie?
+\item Vysvetlite rozdiel medzi naivnou a seminaivnou evaluáciou rekurzívneho dotazu.
+\item Vymyslite otázku, ktorá sa nedá vyjadriť v SQL ani po pridaní rekurzie.
+    (Bežne sa pýtame na záznamy, to sa vyjadriť dá, ale skúste sa pýtať na niečo iné.)
+\end{itemize}
+\end{frame}
+
+
 \begin{frame}[fragile]{Úlohy}
 Čo počíta tento dotaz?
 \bigskip
 {\small
 \begin{alltt}
-WITH RECURSIVE t(n) AS (
+WITH RECURSIVE t(s) AS (
     SELECT 'foo'
   UNION ALL
-    SELECT n || 'bar' FROM t WHERE length(n) < 20
+    SELECT s || 'bar' FROM t WHERE length(s) < 20
 )
-SELECT n FROM t ORDER BY n;
+SELECT s FROM t ORDER BY s;
 \end{alltt}
 }
 \bigskip

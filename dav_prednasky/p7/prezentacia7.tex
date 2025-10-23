@@ -121,7 +121,7 @@ Výhoda: netreba ukladať medzivýsledky na disk.
 \item \alert{sequential (linear) scan} --- prejdeme priamo záznamy zaradom, ako sú uložené (efektívne pre malé relácie)
 \item \alert{index scan} --- využije sa existujúci index, neraz netreba vidieť všetky záznamy, lebo máme podmienku za WHERE
 \item \alert{index-only scan} --- k záznamom netreba vôbec pristupovať, ak nás zaujímajú len atribúty obsiahnuté v indexe
-\item \alert{bitmap index scan} --- skenovaním indexu vytvoríme bitmapu udávajúcu, ktoré bloky z heap file treba prečítať, a potom ich načítame celé naraz, nie jednotlivo pre jednotlivé záznamy
+\item \alert{bitmap index scan} --- skenovaním indexu vytvoríme bitmapu popisujúcu bloky z heap file, ktoré treba prečítať, a potom ich načítame celé naraz, nie jednotlivo pre jednotlivé záznamy
 \end{itemize}
 \end{frame}
 
@@ -252,7 +252,7 @@ Hash Cond: (e.dept_id = d.dept_id)
         ->  Seq Scan on department d  (cost=0.00..13.00 rows=300 width=122)
 \end{alltt}
 }
-Celá tabuľka je v jednom bloku, preto sekvenčný sken je rýchly.
+Celá tabuľka je v jednom bloku, preto sekvenčný scan je rýchly.
 \end{frame}
 
 \begin{frame}[fragile]{Query plans --- EXPLAIN}
@@ -268,7 +268,7 @@ Nested Loop  (cost=0.42..26.43 rows=3 width=140)
         Index Cond: (dept_id = e.dept_id)
 \end{alltt}
 }
-PostgreSQL automaticky vytvára kvôli primárnemu kľúču index \verb|department_pkey| (aby zapezpečil unikátnosť hodnoty \verb|dept_id|).
+PostgreSQL automaticky vytvára kvôli primárnemu kľúču index \verb|department_pkey| (aby zabezpečil unikátnosť hodnoty \verb|dept_id|).
 \end{frame}
 
 \begin{frame}[fragile]{Query plans --- EXPLAIN}
@@ -355,7 +355,7 @@ očakávame, že miesto Seq Scan uvidíme Index Scan.
 Stane sa však niečo úplne iné: zmení sa spôsob výpočtu GROUP BY.
 (Dôvod je nejasný; súvisí to však s tým, že v tabuľkách máme veľmi málo záznamov,
 preto sa neoplatí čítať index. Voľba plánu môže súvisieť so stavom systému:
-pri niektorých operáciách, napr. usporiadavaní, vieme výpočet urýchliť za cenu zvýšenia pamäťových nárokov.)
+pri niektorých operáciách, napr. usporadúvaní, vieme výpočet urýchliť za cenu zvýšenia pamäťových nárokov.)
 \end{frame}
 
 \begin{frame}[fragile]{Query plans --- EXPLAIN}
@@ -483,7 +483,8 @@ ak máme alokovaných v RAM 2000 blokov (čiže 10x viac)?
 % 400 000 I/O operácií; cca 400 s = 6:40 min
 \end{frame}
 
-\begin{frame}[fragile]{Fyzické operátory --- nested loop join}
+\begin{frame}{Fyzické operátory --- nested loop join}
+\hbox{}
 {\small
 Počítame \alert{nested loop join} pre R a S,
 pričom vo vonkajšom cykle prechádzame cez R a vo vnútornom cez S.
@@ -515,6 +516,7 @@ a zistite počet potrebných I/O operácií.
 (b) Dokážte, že iné rozdelenie blokov v RAM medzi r a s by viedlo k suboptimálnemu výsledku.
 \end{frame}
 
+
 \begin{frame}{Literatúra}
 \begin{itemize}
 \item {\scriptsize\url{https://cs186berkeley.net/notes/note8/}}
@@ -525,6 +527,19 @@ a zistite počet potrebných I/O operácií.
 \item {\scriptsize\url{https://www.db-book.com/slides-dir/PDF-dir/ch16.pdf}}
 \item {\scriptsize\url{https://pganalyze.com/docs/explain/scan-nodes}}
 \item {\scriptsize\url{https://www.postgresql.org/docs/current/performance-tips.html}}
+\end{itemize}
+\end{frame}
+
+
+\begin{frame}{Na zamyslenie}
+\begin{itemize}
+\item Pred samotným výpočtom dotazu sa vykoná veľa krokov (napr. parsovanie dotazu a preklad do relačnej algebry).
+    Ktorý z týchto krokov trvá zvyčajne najdlhšie?
+\item Ako možno na úrovni relačnej algebry (bez skúmania dát v tabuľkách) optimalizovať operátory $\sigma$ a $\pi$?
+\item Aké fyzické operátory zodpovedajú množinovému rozdielu?
+\item Popíšte, ako možno nested loop join 4 tabuliek vypočítať bez ukladania medzivýsledkov.
+\item Rátame nested loop join pre relácie, ktoré zaberajú 1000 a 20 blokov.
+    Najmenej koľko blokov v RAM potrebuje DBMS alokovať na výpočet, aby bol počet diskových čítaní minimálny?
 \end{itemize}
 \end{frame}
 

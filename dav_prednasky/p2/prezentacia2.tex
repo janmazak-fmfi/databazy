@@ -82,11 +82,12 @@ Odstránenie duplikátnych záznamov z výsledku dotazu:
 \begin{frame}[fragile]{NULL}
 \begin{itemize}
 \item Špeciálna hodnota \alert{NULL} zodpovedá neznámej hodnote.
-\item Trojhodnotová logika, napr. \verb|NULL OR FALSE| je NULL.
+\item Trojhodnotová logika, napr. \verb|NULL OR FALSE| je UNKNOWN (ani TRUE, ani FALSE).
 \item Test, či je hodnota NULL: \verb|x IS NULL| / \verb|x IS NOT NULL|
+\item Test, či je hodnota UNKNOWN: \verb|x IS UNKNOWN| (vhodné len pre debugging)
 \item Pri vytváraní tabuľky možno NULL zakázať.
 Inak treba starostlivo zvažovať, ako ovplyvní operátory a agregačné funkcie (napr. priemer hodnôt v stĺpci).
-Nehádajte, použite dokumentáciu.
+Nehádajte, použite dokumentáciu a testujte.
 \end{itemize}
 \end{frame}
 
