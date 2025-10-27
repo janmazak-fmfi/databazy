@@ -72,32 +72,54 @@ ERM možno vytvárať na rôznej úrovni podľa množstva detailov: konceptuáln
 Oproti predošlému obrázku pribudli dátové typy, sme bližšie k finálnej databázovej schéme.
 \end{frame}
 
-\begin{frame}[fragile]{Entitno-relačný model}
-Súčasti ERM:
+\begin{frame}{ERM: konceptuálna úroveň (Conceptual Level)}
 \begin{itemize}
-\item entity
-\item atribúty jednotlivých entít
-\item jednoznačné identifikátory entít (primárne kľúče)
-\item vzťahy medzi entitami a ich násobnosť
+    \item Identifikuje hlavné entity (napr. Čitateľ, Kniha).
+    \item Definuje základné vzťahy medzi entitami (napr. \textit{požičiava~si}).
+    \item Neobsahuje atribúty, dátové typy ani kľúče.
+    \item Slúži na (úvodnú) komunikáciu s \uv{biznis používateľmi} (manažment, klient).
+\end{itemize}
+\end{frame}
+
+\begin{frame}{ERM: logická úroveň (Logical Level)}
+Detailný návrh štruktúry dát nezávislý od DBMS.
+\begin{itemize}
+    \item Entity sa stávajú tabuľkami.
+    \item Definuje všetky atribúty (stĺpce) pre každú tabuľku.
+    \item Určuje primárne kľúče (PK) a cudzie kľúče (FK).
+    \item Špecifikuje kardinalitu vzťahov (1:N, M:N).
+    \item Stále nerieši špecifické dátové typy (napr. \texttt{VARCHAR} vs \texttt{TEXT}).
+\end{itemize}
+\end{frame}
+
+\begin{frame}{ERM: fyzická úroveň (Physical Level)}
+Konkrétna implementácia pre špecifický databázový systém (DBMS).
+\begin{itemize}
+    \item Presné názvy tabuliek a stĺpcov.
+    \item Definuje špecifické dátové typy (napr. \texttt{TEXT}, \texttt{DATE}).
+    \item Zahŕňa obmedzenia (constraints) ako \texttt{NOT NULL}, \texttt{UNIQUE}.
+    \item Rieši optimalizáciu výkonu: indexy, partície.
+    \item Výsledkom je DDL skript (napr. \texttt{CREATE TABLE...}).
 \end{itemize}
 \end{frame}
 
 
 \begin{frame}[fragile]{Entitno-relačný model}
-Reprezentujeme situáciu na pracovisku. Pre zamestnancov evidujeme meno, mzdu, 
+Reprezentujeme situáciu na pracovisku. Pre zamestnancov evidujeme meno, mzdu,
 oddelenie, na ktorom pracujú (len jedno), adresu tohto oddelenia, a zoznam projektov, na ktorých pracujú.
 Pre projekty potrebujeme vedieť názov, rozpočet, zoznam ich zamestnancov a vedúceho projektu.
 
 Nakreslite entitno-relačný diagram:
 \begin{itemize}
 \item Entity sú obdĺžniky, hlavička je názov entity a pod ňou je zoznam atribútov s dátovým typom oddeleným dvojbodkou.
-\item Vzťah medzi entitami zobrazíme neorientovanou hranou medzi obdĺžnikmi, ku ktorému pripíšeme, či ide o 1:1, 1:N, M:N
+\item Vzťah medzi entitami zobrazíme neorientovanou hranou medzi obdĺžnikmi, ku ktorému pripíšeme,
+či ide o one-to-one (1:1), one-to-many (1:N), many-to-many (M:N)
 (pozor na poradie; označenia 1, M, N sa bežne pripisujú ku koncom hrán).
 \end{itemize}
 \end{frame}
 
 \begin{frame}[fragile]{Entitno-relačný model v SQL}
-Prepis ERM do databázovej schémy v SQL: 
+Prepis ERM do databázovej schémy v SQL:
 \begin{itemize}
 \item Entite zodpovedá tabuľka; každý jej atribút je stĺpec tejto tabuľky.
 \item Vzťahy 1:N --- pridáme stĺpec do príslušnej tabuľky, napr. číslo oddelenia v tabuľke zamestnancov.
@@ -131,9 +153,9 @@ Pre ternárny vzťah vieme rovno pridať reláciu a stačí správne popísať n
 \begin{frame}[fragile]{Terminológia: čo je to \alert{atribút}?}
 \begin{itemize}
 \item V \uv{matematickom} databázovom relačnom modeli je to \alert{\uv{atomický} element}, nad ktorým vytvárame relácie (ako množiny atribútov).
-\item V SQL (čo je praktická implementácia \uv{matematického} modelu) je to \alert{stĺpec tabuľky}; 
+\item V SQL (čo je praktická implementácia \uv{matematického} modelu) je to \alert{stĺpec tabuľky};
   stĺpce jednotlivých tabuliek sú však nezávislé a na priblíženie sa matematickému modelu slúžia cudzie kľúče.
-\item V ERM je to \alert{vlastnosť entity} (a nesúvisí so vzťahmi medzi entitami, hoci jedno aj druhé musíme v SQL reprezentovať stĺpcami). 
+\item V ERM je to \alert{vlastnosť entity} (a nesúvisí so vzťahmi medzi entitami, hoci jedno aj druhé musíme v SQL reprezentovať stĺpcami).
 \end{itemize}
 \end{frame}
 
@@ -268,17 +290,66 @@ $\{\hbox{emp\_id}\}\fz \{\hbox{emp\_name, dept\_id}\}$
 \end{frame}
 
 \begin{frame}[fragile]{Funkčné závislosti}
+Príklad: neplatí $X\fz Y$, ale môže platiť $Y\fz X$:\\[3mm]
+\centerline{
+\begin{tabular}{|c|c|}
+    \hline
+    X & Y \\
+    \hline
+    1 & \alert{2} \\
+    1 & \alert{3} \\
+    2 & 4 \\
+    3 & 5 \\
+    3 & 6 \\
+    \hline
+\end{tabular}
+}
+\bigskip
+(Pozor: platnosť FZ je cez všetky naplnenia tabuľky, čiže z jedného naplnenia nevieme rozhodnúť o platnosti FZ.)
+\end{frame}
+
+\begin{frame}[fragile]{Funkčné závislosti}
+Príklad: ktoré z možných netriviálnych FZ\\
+($C\fz B$, $AC\fz B$\dots) určite neplatia?\\[5mm]
+\centerline{
+\begin{tabular}{|c|c|c|}
+    \hline
+    A & B & C\\
+    \hline
+    1 & 1 & 1\\
+    1 & 2 & 3\\
+    2 & 5 & 3\\
+    3 & 5 & 3\\
+    \hline
+\end{tabular}
+}
+\end{frame}
+
+\begin{frame}[fragile]{Funkčné závislosti}
+Pridanie funkčnej závislosti spraví z relácie funkciu. Táto funkcia je definovaná naplnením tabuľky (nie matematicky ---
+to by sme pravú stranu FZ vôbec nemuseli evidovať v databáze, ak by sa dala vždy vypočítať z hodnoty naľavo).
+\\[5mm]
+
+Pre tabuľku s dvomi atribútmi $x$, $y$ to presne zodpovedá matematickým pojmom:
+\emph{binárna relácia} reprezentuje \emph{funkciu}, ak pre každú hodnotu $x$ máme jedinú hodnotu $y$.
+(Technicky, ide o čiastočnú funkciu, nemusí byť definovaná na všetkých prípustných hodnotách $x$,
+jej definičný obor je daný konkrétnym naplnením tabuľky.)
+\end{frame}
+
+\begin{frame}[fragile]{Funkčné závislosti}
 Aké FZ platia v relácii s atribútmi idFaktúry,\\
 idObjednávky, idZákazníka, idProduktu, Cena, Množstvo?\\
 \pause
-\begin{eqnarray*}
-F\fz O\\
-O\fz Z\\
-OP\fz M\\
-P\fz C
-\end{eqnarray*}
-\pause
-Možno $O\fz F$, ale čo s opravnými faktúrami?
+\begin{align*}
+F &\fz O\\
+O &\fz Z\\
+OP &\fz M\\
+P &\fz C\quad ??? \quad (\text{zľavy pre veľkoodberateľov?})\\
+O &\fz F\quad ??? \quad (\text{čo s opravnými faktúrami?})
+\end{align*}
+
+\bigskip
+Ak chceme nájsť všetky platné FZ, môžeme postupne pre každý atribút $A$ hľadať minimálne množiny $X$ také, že $X\fz A$.
 \end{frame}
 
 \begin{frame}[fragile]{Reprezentácia FZ v SQL}
@@ -298,7 +369,7 @@ Keďže sa do nej nedajú vložiť záznamy $(a_1, b_1, c_1)$ a $(a_1, b_1, c_2)
 \end{frame}
 
 \begin{frame}[fragile]{Funkčné závislosti}
-FZ nemožno identifikovať z naplnenia databázy (pri inom by nemuseli platiť), musia byť preto súčasťou návrhu.
+FZ nemožno určiť z naplnenia databázy (pri inom by nemuseli platiť), musia byť preto súčasťou návrhu.
 \bigskip
 
 Funkčné závislosti treba vnímať so všetkými ich dôsledkami. Predpokladajme, že platí
@@ -413,6 +484,7 @@ sa nemôže dostať záznam, ktorý v $r$ nebol, pretože tento join ku každém
 \begin{frame}[fragile]{Dekompozícia relácií --- bezstratovosť}
 Veta: Dekompozícia $XYZ$ do $XY$ a $XZ$ je bezstratová práve vtedy, keď $X$ je nadkľúčom v $XY$ alebo v $XZ$.
 \\[5mm]
+\pause
 
 Dôkaz: Ak $X$ je nadkľúčom v $XY$ (čiže $X\fz Y$), tak join $XY\bowtie XZ$ len pripíše hodnotu $Y$ k záznamom v $XZ$, dekompozícia preto je bezstratová.
 \\[5mm]
@@ -451,7 +523,7 @@ Mieru normalizácie popisujú \alert{normálne formy}.
 \end{itemize}
 Normálne formy vytvárajú hierarchiu (ak je niečo vo vyššej, je aj v nižšej).
 Existujú aj vyššie normálne formy (napr. 4NF), tie sa venujú odstraňovaniu tzv. multivalued dependencies.
-V praxi sú zväčša irelevantné.
+V praxi sú málo relevantné.
 \end{frame}
 
 \begin{frame}[fragile]{BCNF}
@@ -812,7 +884,7 @@ Možnosti pre \blue{ON DELETE}
 \item SET NULL -- nastaví odkaz na NULL\\ (zlyhá pre NOT NULL stĺpce)
 \item SET DEFAULT -- nastaví hodnotu odkazu na defaultnú
 (zlyhá, ak takto vznikne nekorektný odkaz)
-\item NO ACTION -- toto je default, DELETE skončí s chybou
+\item NO ACTION -- toto je default, DELETE skončí s chybou pri COMMIT (ak DBMS podporuje odloženú kontrolu, inak ihneď)
 \end{itemize}
 \end{frame}
 
@@ -821,11 +893,11 @@ Možnosti pre \blue{ON UPDATE}
 \begin{itemize}
 \item \alert{CASCADE} -- zmení odkazujúcu hodnotu na novú hodnotu odkazovanej
 (zachová väzbu medzi riadkami)
-\item RESTRICT -- zabráni zmene v odkazovanej tabuľke, UPDATE zlyhá
+\item \alert{RESTRICT} -- zabráni zmene v odkazovanej tabuľke, UPDATE ihneď skončí s chybou
 \item SET NULL -- nastaví odkaz na NULL (väzba zanikne)
 \item SET DEFAULT -- nastaví hodnotu odkazu na defaultnú
 (zlyhá, ak takto vznikne nekorektný odkaz)
-\item NO ACTION -- toto je default, väzba sa pokazí
+\item NO ACTION -- toto je default, UPDATE skončí s chybou pri COMMIT (ak DBMS podporuje odloženú kontrolu, inak ihneď)
 \end{itemize}
 \end{frame}
 
@@ -878,6 +950,38 @@ Nevýhoda: vo všetkých dotazoch potom musíme filtrovať cez pridaný flag.
 \end{frame}
 
 
+\begin{frame}[fragile]{Vyššie normálne formy}
+
+Niektoré druhy redundancie sa nedajú zachytiť FZ.
+
+Príklad: R = employee(emp\_id, project, skill).
+\begin{itemize}
+    \item Zamestnanec pracuje na viacerých projektoch.
+    \item Zamestnanec má viacero zručností.
+    \item Projekty a zručnosti zamestnanca \alert{sú na sebe nezávislé}.
+\end{itemize}
+
+Problém (redundancia): Ak Anna pracuje na 7 projektoch a vie 'SQL' a 'Python', tabuľka \alert{musí} obsahovať všetkých 14 riadkov karteziánskeho súčinu.
+Vznikajú anomálie: pridanie novej zručnosti pre Annu vyžaduje pridanie 7 nových záznamov.
+
+\medskip
+R je v BCNF, lebo neplatia žiadne netriviálne FZ (kľúčom je celá trojica \texttt{emp\_id, project, skill}). BCNF však túto redundanciu neodstránila.
+\end{frame}
+
+\begin{frame}[fragile]{4NF}
+Multivalued dependencies (MVD) v relácii $XYZ$:
+$X \twoheadrightarrow Y$, ak pre danú hodnotu $X$ existuje \emph{množina} hodnôt $Y$, ktorá je rovnaká pre každú hodnotu $Z$.
+
+Pre R:
+$ emp\_id \twoheadrightarrow project$, $emp\_id \twoheadrightarrow skill$.
+
+\bigskip
+Relácia je v 4NF, ak v každej netriviálnej MVD $X \twoheadrightarrow Y$ je $X$ je nadkľúč.
+
+\bigskip
+MVD odstraňujeme tiež dekompozíciou, napr. $R$ nahradíme $R_1 = (emp\_id, project)$ a $R_2 = (emp\_id, skill)$.
+\end{frame}
+
 \begin{frame}{Literatúra}
 \begin{itemize}
 \item {\scriptsize\href{https://www.lucidchart.com/pages/er-diagrams}{entity-relationship diagrams}}
@@ -902,6 +1006,29 @@ Online normalization tools (limited functionality)
 \item {\scriptsize\url{https://arjo129.github.io/functionalDependencyCalculator/}}
 \item {\scriptsize\url{http://raymondcho.net/RelationalDatabaseTools/RelationalDatabaseTools.html}}
 \item {\scriptsize\url{https://uisacad5.uis.edu/cgi-bin/mcrem2/database_design_tool.cgi}}
+\end{itemize}
+\end{frame}
+
+
+\begin{frame}{Na zamyslenie}
+\begin{itemize}
+\item Nájdite príklad dekompozície, ktorá je bezstratová, ale nezachováva FZ.
+\item Nájdite príklad dekompozície, ktorá nie je bezstratová, ale zachováva všetky FZ (pričom platia aspoň dve).
+\item Ako možno vynútiť platnosť funkčnej závislosti $AB\fz C$ v bezstratovej dekompozícii,
+    ak žiadna relácia neobsahuje zároveň všetky tri atribúty $A$, $B$, $C$?
+\item Čo znamená \uv{zachovať FZ pri dekompozícii}? Je nutné zachovať každú FZ? Je to výhodné?
+\item Aj dobre napísaný trigger má nevýhody. Aké?
+\end{itemize}
+\end{frame}
+
+\begin{frame}{Na zamyslenie}
+\begin{itemize}
+\item Akú časovú zložitosť má vyhodnotenie cudzieho kľúča pri vložení jedného záznamu? Majú na to vplyv indexy?
+\item Akú časovú zložitosť má CASCADE pri cudzích kľúčoch? Majú na to vplyv indexy?
+\item Uveďte príklad redundancie, ktorá sa nedá vyjadriť pomocou FZ.
+\item V prípade tabuľky, ktorá má veľa atribútov, ktorých hodnoty sú takmer všetky rovnaké (napr. NULL, FALSE či default),
+    môže mať význam nahradiť ich všetky jediným stĺpcom typu json. V čom spočíva výhodnosť tohto postupu?
+    Aká by bola normálna forma takto modifikovanej tabuľky?
 \end{itemize}
 \end{frame}
 
