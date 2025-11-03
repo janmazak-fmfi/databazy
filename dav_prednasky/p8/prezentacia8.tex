@@ -599,6 +599,24 @@ Tie sú binárne, preto v BCNF. FZ ostali zachované.
 \end{frame}
 
 \begin{frame}[fragile]{Normalizácia}
+Uvažujme reláciu R(Student, Course, Teacher). Vieme, že:
+\begin{itemize}
+\item Študent môže študovať viacero predmetov.
+\item V rámci jedného predmetu má študent jedného učiteľa.
+\item Predmet môže mať viac učiteľov,\\ avšak každý učiteľ učí len jeden predmet.
+\end{itemize}
+
+\bigskip
+\begin{enumerate}
+\item Nájdite všetky platné netriviálne FZ.
+\item Nájdite všetky kľúče tejto relácie.
+\item Zistite najvyššiu normálnu formu, v ktorej je táto relácia.
+\item Bezstratovo ju dekomponujte do BCNF, ak treba.\\
+Zachovajú sa FZ? Ak nie, ako kontrolovať tie porušené?
+\end{enumerate}
+\end{frame}
+
+\begin{frame}[fragile]{Normalizácia}
 V relácii s atribútmi idFaktúry, idObjednávky, idZákazníka, idProduktu, Cena, Množstvo platia FZ
 \begin{eqnarray*}
 F\fz O\\
@@ -606,8 +624,12 @@ O\fz Z\\
 OP\fz M\\
 P\fz C
 \end{eqnarray*}
-1. Nájdite všetky kľúče tejto relácie.\\
-2. Dekomponujte ju do 3NF, prípadne BCNF.
+
+\bigskip
+\begin{enumerate}
+\item Nájdite všetky kľúče tejto relácie.
+\item Dekomponujte ju do 3NF, prípadne BCNF.
+\end{enumerate}
 \end{frame}
 
 \begin{frame}[fragile]{Overenie NF}
@@ -969,7 +991,7 @@ R je v BCNF, lebo neplatia žiadne netriviálne FZ (kľúčom je celá trojica \
 \end{frame}
 
 \begin{frame}[fragile]{4NF}
-Multivalued dependencies (MVD) v relácii $XYZ$:
+\alert{Multivalued dependencies} (MVD) v relácii $XYZ$:
 $X \twoheadrightarrow Y$, ak pre danú hodnotu $X$ existuje \emph{množina} hodnôt $Y$, ktorá je rovnaká pre každú hodnotu $Z$.
 
 Pre R:
