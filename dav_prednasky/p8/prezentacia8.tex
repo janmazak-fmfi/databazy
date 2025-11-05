@@ -352,22 +352,6 @@ O &\fz F\quad ??? \quad (\text{čo s opravnými faktúrami?})
 Ak chceme nájsť všetky platné FZ, môžeme postupne pre každý atribút $A$ hľadať minimálne množiny $X$ také, že $X\fz A$.
 \end{frame}
 
-\begin{frame}[fragile]{Reprezentácia FZ v SQL}
-Reprezentácia funkčných závislostí v SQL: pomocou UNIQUE.
-\bigskip
-
-Pre závislosť $AB\fz C$ spravíme tabuľku
-\begin{alltt}
-      CREATE TABLE t (
-            A <data_type_of_A>,
-            B <data_type_of_B>,
-            C <data_type_of_C>,
-            \alert{UNIQUE(A, B)}
-      );
-\end{alltt}
-Keďže sa do nej nedajú vložiť záznamy $(a_1, b_1, c_1)$ a $(a_1, b_1, c_2)$, platí aj požadovaná funkčná závislosť.
-\end{frame}
-
 \begin{frame}[fragile]{Funkčné závislosti}
 FZ nemožno určiť z naplnenia databázy (pri inom by nemuseli platiť), musia byť preto súčasťou návrhu.
 \bigskip
@@ -438,6 +422,23 @@ Aké kľúče má relácia\\
 (emp\_id, emp\_name, dept\_id, dept\_name)?
 \end{frame}
 
+\begin{frame}[fragile]{Reprezentácia FZ v SQL: \alert{UNIQUE}}
+Pre závislosť $AB\fz C$ spravíme tabuľku
+\begin{alltt}
+      CREATE TABLE t (
+            A <data_type_of_A>,
+            B <data_type_of_B>,
+            C <data_type_of_C>,
+            \alert{UNIQUE(A, B)}
+      );
+\end{alltt}
+Keďže sa do nej nedajú vložiť záznamy $(a_1, b_1, c_1)$ a $(a_1, b_1, c_2)$, platí aj požadovaná funkčná závislosť.
+
+\bigskip
+Keby sme mali v jednej tabuľke veľa FZ, ich vynucovanie pomocou UNIQUE môže navzájom kolidovať.
+To tiež naznačuje vhodnosť rozdelenia veľkej tabuľky na malé (dekompozícia relácie).
+\end{frame}
+
 \begin{frame}[fragile]{Dekompozícia relácií}
 V princípe každú databázu možno vnímať ako jedinú reláciu (predstavte si join všetkých tabuliek).
 Preto dekompozícia relácie na menšie je pri návrhu kľúčová, aj keď ju explicitne nevnímame.
@@ -446,7 +447,7 @@ Preto dekompozícia relácie na menšie je pri návrhu kľúčová, aj keď ju e
 Pri dekompozícii \alert{nechceme polámať funkčné závislosti}.
 \bigskip
 
-Príklad: relácia $order\_items(Order, Product, Amount)$ so závislosťou
+Príklad: relácia $order\_items(Order, Product, Amount)$ s~FZ
 $$\{Order, Product\}\fz \{Amount\}.$$
 Ak ju akokoľvek dekomponujeme, stratíme informáciu o tom, že $\{Order, Product\}$ je kľúč.
 Pri kontrole integrity budeme musieť pri každej zmene niektorej z čiastkových relácií spočítať join a overiť,
@@ -630,6 +631,9 @@ P\fz C
 \item Nájdite všetky kľúče tejto relácie.
 \item Dekomponujte ju do 3NF, prípadne BCNF.
 \end{enumerate}
+\pause
+\medskip
+Všimnite si, ako dekompozícia smeruje k jednej tabuľke pre každú FZ (ktorá sa ľahko vynúti v SQL pomocou UNIQUE).
 \end{frame}
 
 \begin{frame}[fragile]{Overenie NF}
