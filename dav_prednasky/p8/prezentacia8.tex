@@ -524,7 +524,7 @@ Mieru normalizácie popisujú \alert{normálne formy}.
 \end{itemize}
 Normálne formy vytvárajú hierarchiu (ak je niečo vo vyššej, je aj v nižšej).
 Existujú aj vyššie normálne formy (napr. 4NF), tie sa venujú odstraňovaniu tzv. multivalued dependencies.
-V praxi sú málo relevantné.
+V~praxi sa možno zaobísť aj bez znalosti teórie o nich.
 \end{frame}
 
 \begin{frame}[fragile]{BCNF}
@@ -617,25 +617,6 @@ Zachovajú sa FZ? Ak nie, ako kontrolovať tie porušené?
 \end{enumerate}
 \end{frame}
 
-\begin{frame}[fragile]{Normalizácia}
-V relácii s atribútmi idFaktúry, idObjednávky, idZákazníka, idProduktu, Cena, Množstvo platia FZ
-\begin{eqnarray*}
-F\fz O\\
-O\fz Z\\
-OP\fz M\\
-P\fz C
-\end{eqnarray*}
-
-\bigskip
-\begin{enumerate}
-\item Nájdite všetky kľúče tejto relácie.
-\item Dekomponujte ju do 3NF, prípadne BCNF.
-\end{enumerate}
-\pause
-\medskip
-Všimnite si, ako dekompozícia smeruje k jednej tabuľke pre každú FZ (ktorá sa ľahko vynúti v SQL pomocou UNIQUE).
-\end{frame}
-
 \begin{frame}[fragile]{Overenie NF}
 \uv{Byť v normálnej forme} nie je \uv{existenčná} vlastnosť:
 nestačí čosi malé nájsť a ukázať, že to má požadované vlastnosti;
@@ -669,7 +650,7 @@ Ak sa v uzávere vyskytne atribút, ktorý nie je na ľavej strane, porovnáme t
 \begin{frame}[fragile]{Overenie NF}
 Bežné chyby:
 \begin{itemize}
-\item Miesto uzáveru množiny všetkých FZ pracujeme len s FZ v konkrétnej reprezentácii tohto uzáveru (napr. niektoré minimálne pokrytie).
+\item Namiesto uzáveru množiny všetkých FZ pracujeme len s FZ v konkrétnej reprezentácii tohto uzáveru (napr. niektoré minimálne pokrytie).
 Napr. máme zapísané $A\fz X$, $X\fz B$, a pre reláciu obsahujúcu $A$ aj $B$ si nevšimneme, že v nej platí $A\fz B$.
 \item Pri návrhu databázy zriedka pracujeme s reláciou, ktorá obsahuje všetky atribúty
 (hoci virtuálne taká vždy existuje, stačí si predstaviť join všetkých relácií v dekompozícii).
@@ -696,42 +677,115 @@ Normalizácia núti používateľov písať joiny, ktoré naspäť pospájajú t
 Tie najbežnejšie či netriviálne možno napísať vopred v podobe VIEW.
 \end{frame}
 
-\begin{frame}[fragile]{Príklad: databáza kníh}
-Atribúty:\\[3mm]
-\begin{minipage}{.4\pdfpagewidth}
-\scriptsize
+\begin{frame}[fragile]{Normalizácia}
+V relácii s atribútmi id\blue{O}bjednávky, id\blue{Z}ákazníka, id\blue{P}roduktu, \blue{C}ena, \blue{M}nožstvo platia FZ
+\begin{eqnarray*}
+O\fz Z\\
+OP\fz M\\
+P\fz C
+\end{eqnarray*}
+
+\bigskip
+\begin{enumerate}
+\item Nájdite všetky kľúče tejto relácie.
+\item Dekomponujte ju do 3NF, prípadne BCNF.
+\end{enumerate}
+\pause
+\medskip
+Všimnite si, ako dekompozícia smeruje k jednej tabuľke pre každú FZ (ktorá sa ľahko vynúti v SQL pomocou UNIQUE).
+\end{frame}
+
+\begin{frame}[fragile]{Normalizácia}
+V relácii s atribútmi id\alert{F}aktúry, id\blue{O}bjednávky, id\blue{Z}ákazníka, id\blue{P}roduktu, \blue{C}ena, \blue{M}nožstvo platia FZ
+\begin{eqnarray*}
+O\fz Z, \quad OP\fz M, \quad P\fz C, \quad \alert{F\fz O}
+\end{eqnarray*}
+Pridanie faktúry vytvorí problémy, ktoré sa nedajú riešiť len cez FZ. Dva rôzne prípady:\\[2mm]
+A. Produkty z objednávky sa rozdelia do viacerých faktúr, každý na presne jednej faktúre.\\[2mm]
+B. Faktúra sa vždy vzťahuje na všetky produkty objednávky, ale môže ich byť viac
+(chybne vystavené $F$, ktoré už evidujú zákazníci či daňový úrad, preto ich nemožno zmazať).\\[2mm]
+\end{frame}
+
+\begin{frame}[fragile]{Normalizácia}
+\begin{eqnarray*}
+O\fz Z, \quad OP\fz M, \quad P\fz C, \quad \alert{F\fz O}
+\end{eqnarray*}
+V oboch prípadoch dáva zmysel oddeliť $OZ$, $PC$ a $OPM$.
+\bigskip
+
+Rozdiel sa prejaví pri dekompozícii $FOP$. Tá nie je v 3NF, lebo jediný kľúč je $FP$ a platí $F\fz O$, preto s ňou v oboch prípadoch potrebujeme niečo spraviť.
+\bigskip
+
+Pre $FOP$ prichádza do úvahy jediná bezstratová dekompozícia $FP$, $FO$ (prečo?).
+\end{frame}
+
+\begin{frame}[fragile]{Normalizácia}
+\begin{small}
+A. Produkty z objednávky sa rozdelia do viacerých faktúr, každý na presne jednej faktúre.
+\bigskip
+
+Platí tu FZ $OP\fz F$, ktorú stratíme pri dekompozícii $FP$, $FO$.
+Zároveň však táto nová FZ zabezpečí, že $FOP$ je aspoň v 3NF, hoci sa nedá bezstratovo dekomponovať do BCNF.
+\bigskip
+
+To však nie je všetko. $OP\fz F$ zaručí len to, že faktúra k objednanému produktu je najviac jedna,
+nie to, že každý produkt je vyfakturovaný. Potrebujeme teda navyše nejakú rovnosť množín produktov,
+a to v SQL nemožno zabezpečiť jednoduchými prostriedkami.
+Nevyhneme sa tak použitiu triggerov.
+\end{small}
+\bigskip
+
+{\scriptsize V praxi je asi jednoduchšie rozhodnúť sa, že nebudeme deliť produkty do viacerých faktúr,
+lebo to nemá významnú pridanú hodnotu a zvyšuje riziko chýb (jednoduchšie je rozdeliť objednávku a pôvodnú zmazať).}
+\end{frame}
+
+\begin{frame}[fragile]{Normalizácia}
+B. Faktúra sa vždy vzťahuje na všetky produkty objednávky.
+\bigskip
+
+Dekompozícia $FOP$ do $FP$, $FO$ vyriešila všetky problémy, ktoré sa dajú popísať cez FZ.
+Lenže čomu v realite zodpovedá \alert{$FP$}?
+\bigskip
+
+Problém: K $F$ je jedna $O$, a na tej sú $P$. Vzťah medzi $F$ a $P$ je tým úplne určený a nemusíme ho evidovať v tabuľke $FP$.
+Tabuľku $FP$ môžeme úplne zahodiť, lebo je redundantná: ak obsahuje korektné hodnoty, nemá vplyv na výsledok joinu $FO$ a $OPM$.
+\bigskip
+
+To však FZ \uv{nevidia}. V tabuľke $FOP$ platí tzv. multizávislosť $F \twoheadrightarrow P$: množina $P$ k fixnej $F$ je vždy rovnaká bez ohľadu na hodnotu $O$.
+(FZ je špeciálnym prípadom multizávislosti s jednoprvkovou množinou.)
+\end{frame}
+
+\begin{frame}[fragile]{Vyššie normálne formy (informatívne)}
+
+Niektoré druhy redundancie sa nedajú zachytiť FZ.
+
+Príklad: R = employee(emp\_id, project, skill).
 \begin{itemize}
-\item ISBN
-\item Názov
-\item Autor
-\item NárodnosťAutora
-\item Formát
-\item Cena (odporúčaná)
+    \item Zamestnanec pracuje na viacerých projektoch.
+    \item Zamestnanec má viacero zručností.
+    \item Projekty a zručnosti zamestnanca \alert{sú na sebe nezávislé}.
 \end{itemize}
-\end{minipage}
-\begin{minipage}{.4\pdfpagewidth}
-\scriptsize
-\begin{itemize}
-\item Témy (zoznam tém)
-\item PočetStrán
-\item Vydavateľstvo
-\item KontaktVydavateľstvo
-\item Žáner
-\item DefiníciaŽánru
-\end{itemize}
-\end{minipage}
-\\[3mm]
-Predpoklady:
-{
-\footnotesize
-\begin{itemize}
-\item Každú knihu napísal jediný autor a má jediný žáner.
-\item Knihu identifikuje dvojica (Názov, Autor), oplatí sa však pridať umelé idDiela, aby sme mali jednoduchý kľúč.
-\item Knihu vydáva len jediné vydavateľstvo, má len jediné vydanie a jeden jazyk.
-    Môže však byť vo viacerých formátoch; ISBN sa prideľuje osobitne pre jednotlivé formáty (papier, ePub, PDF\dots).
-\end{itemize}
-}
-Identifikujte FZ a bezstratovo dekomponujte do BCNF.
+
+Problém (redundancia): Ak Anna pracuje na 7 projektoch a vie 'SQL' a 'Python', tabuľka \alert{musí} obsahovať všetkých 14 riadkov karteziánskeho súčinu.
+Vznikajú anomálie: pridanie novej zručnosti pre Annu vyžaduje pridanie 7 nových záznamov.
+
+\medskip
+R je v BCNF, lebo neplatia žiadne netriviálne FZ (kľúčom je celá trojica \texttt{emp\_id, project, skill}). BCNF však túto redundanciu neodstránila.
+\end{frame}
+
+\begin{frame}[fragile]{4NF a 5NF (informatívne)}
+\alert{Multivalued dependencies} (MVD) v relácii $XYZ$:
+$X \twoheadrightarrow Y$, ak pre danú hodnotu $X$ existuje \emph{množina} hodnôt $Y$, ktorá je rovnaká pre každú hodnotu $Z$.
+
+Pre R:
+$ emp\_id \twoheadrightarrow project$, $emp\_id \twoheadrightarrow skill$.
+
+\bigskip
+Relácia je v 4NF, ak v každej netriviálnej MVD $X \twoheadrightarrow Y$ je $X$ je nadkľúč.
+
+\bigskip
+MVD odstraňujeme tiež dekompozíciou, napr. $R$ nahradíme $R_1 = (emp\_id, project)$ a $R_2 = (emp\_id, skill)$.
+Zbytočnosť tabuľky FP ukáže až 5NF.
 \end{frame}
 
 \begin{frame}[fragile]{Primary keys}
@@ -806,50 +860,6 @@ Aké funkčné závislosti musia platiť pre nasledujúcu reláciu? (Hľadáme z
 \item PRIMARY KEY: $I\fz ANEP$
 \item UNIQUE: $E\fz I$, $P\fz I$, $AN\fz I$
 \item Z významu stĺpcov to vyzerá tak, že iné FZ (okrem tých, čo vyplývajú z uvedených) už medzi týmito atribútmi nie sú (a nechceme ich v SQL vynucovať).
-\end{itemize}
-\end{frame}
-
-
-\begin{frame}{Užitočná redundancia}
-Ak máme veľa dát, možno nechceme opakovane rátať agregačné funkcie, povedzme súčet.
-Jeho hodnotu $H$ možno vypočítať dopredu, napr. tak, že záznamy dostávajú timestamp,
-podľa ktorého je spravený BTREE index, a v rámci dotazu počítame
-len $H$ k nejakému timestampu plus záznamy, ktoré pribudli.
-
-\bigskip
-V takom prípade treba strážiť konzistenciu dát: pri zmene hodnôt originálnych záznamov
-(napr. zmazanie najstarších) aktualizovať $H$ a naopak nedovoliť zmenu $H$ bez úpravy originálnych záznamov.
-
-\bigskip
-Mechanizmus: \alert{trigger} --- funkcia uložená v databáze, ktorá sa spustí zakaždým,
-keď nastane definovaná udalosť, napr. pred pridaním či po pridaní riadka.
-\end{frame}
-
-\begin{frame}{Užitočná redundancia}
-Zaužívané pravidlá je pri normalizácii občas (hoci zriedka) výhodné porušiť,
-treba však mať jasno, že prečo, a uviesť to v dokumentácii.
-Kompromis medzi znížením redundancie (vyššia NF) a zachovaním FZ nemá
-jediné správne objektívne riešenie, treba sa riadiť skúsenosťou.
-\bigskip
-
-Vo všeobecnosti čím lepšia normalizácia (pri zachovaní FZ),
-tým jednoduchšie sa robí vkladanie a úpravy dát, ale výpočet niektorých dotazov môže byť pomalší.
-Naopak viac redundancie zrýchli výpočet dotazov, ale skomplikuje udržiavanie konzistencie dát.
-
-Ak v schéme existujúcej databázy vidíte neštandardné prvky,
-navrhujte ich zmeny až po dôsledkom preverení ich pôvodu a dôvodov ich vzniku.
-(Pozri tiež \href{https://fs.blog/chestertons-fence/}{Chestertonov plot}.)
-\end{frame}
-
-\begin{frame}[fragile]{Nedostatky v návrhu databázovej schémy}
-\begin{itemize}
-\item zlý, neaktuálny či príliš komplikovaný dátový model\\ (bežné pri digitalizácii verejnej správy)
-\item nejasnosti v tom, aké dáta sú potrebné a či je možné ich získať
-\item schéma, ktorú je ťažké upraviť pri zmene dátového modelu
-      (napr. kvôli nadmernému využitiu custom riešení miesto štandardizovaných; voľte jednoduchosť)
-\item chýbajúca dokumentácia, najmä zdôvodnenia netriviálnych rozhodnutí
-\item nadmerné použitie indexov (netreba ich \uv{pre každý prípad} pre každý atribút)
-\item zlé pomenovania (nejasné, málo špecifické, nekonzistentné, opakovanie názvu pre rôzne veci)
 \end{itemize}
 \end{frame}
 
@@ -975,38 +985,88 @@ Nevýhoda: vo všetkých dotazoch potom musíme filtrovať cez pridaný flag.
 \end{itemize}
 \end{frame}
 
+\begin{frame}{Užitočná redundancia}
+Ak máme veľa dát, možno nechceme opakovane rátať agregačné funkcie, povedzme súčet.
+Jeho hodnotu $H$ možno vypočítať dopredu, napr. tak, že záznamy dostávajú timestamp,
+podľa ktorého je spravený BTREE index, a v rámci dotazu počítame
+len $H$ k nejakému timestampu plus záznamy, ktoré pribudli.
 
-\begin{frame}[fragile]{Vyššie normálne formy}
+\bigskip
+V takom prípade treba strážiť konzistenciu dát: pri zmene hodnôt originálnych záznamov
+(napr. zmazanie najstarších) aktualizovať $H$ a naopak nedovoliť zmenu $H$ bez úpravy originálnych záznamov.
 
-Niektoré druhy redundancie sa nedajú zachytiť FZ.
+\bigskip
+Mechanizmus: \alert{trigger} --- funkcia uložená v databáze, ktorá sa spustí zakaždým,
+keď nastane definovaná udalosť, napr. pred pridaním či po pridaní riadka.
+\end{frame}
 
-Príklad: R = employee(emp\_id, project, skill).
+\begin{frame}{Užitočná redundancia}
+Zaužívané pravidlá je pri normalizácii občas (hoci zriedka) výhodné porušiť,
+treba však mať jasno, že prečo, a uviesť to v dokumentácii.
+Kompromis medzi znížením redundancie (vyššia NF) a zachovaním FZ nemá
+jediné správne objektívne riešenie, treba sa riadiť skúsenosťou.
+\bigskip
+
+Vo všeobecnosti čím lepšia normalizácia (pri zachovaní FZ),
+tým jednoduchšie sa robí vkladanie a úpravy dát, ale výpočet niektorých dotazov môže byť pomalší.
+Naopak viac redundancie zrýchli výpočet dotazov, ale skomplikuje udržiavanie konzistencie dát.
+
+Ak v schéme existujúcej databázy vidíte neštandardné prvky,
+navrhujte ich zmeny až po dôsledkom preverení ich pôvodu a dôvodov ich vzniku.
+(Pozri tiež \href{https://fs.blog/chestertons-fence/}{Chestertonov plot}.)
+\end{frame}
+
+\begin{frame}[fragile]{Nedostatky v návrhu databázovej schémy}
 \begin{itemize}
-    \item Zamestnanec pracuje na viacerých projektoch.
-    \item Zamestnanec má viacero zručností.
-    \item Projekty a zručnosti zamestnanca \alert{sú na sebe nezávislé}.
+\item zlý, neaktuálny či príliš komplikovaný dátový model\\ (bežné pri digitalizácii verejnej správy)
+\item nejasnosti v tom, aké dáta sú potrebné a či je možné ich získať
+\item schéma, ktorú je ťažké upraviť pri zmene dátového modelu
+      (napr. kvôli nadmernému využitiu custom riešení miesto štandardizovaných; voľte jednoduchosť)
+\item chýbajúca dokumentácia, najmä zdôvodnenia netriviálnych rozhodnutí
+\item nadmerné použitie indexov (netreba ich \uv{pre každý prípad} pre každý atribút)
+\item zlé pomenovania (nejasné, málo špecifické, nekonzistentné, opakovanie názvu pre rôzne veci)
 \end{itemize}
-
-Problém (redundancia): Ak Anna pracuje na 7 projektoch a vie 'SQL' a 'Python', tabuľka \alert{musí} obsahovať všetkých 14 riadkov karteziánskeho súčinu.
-Vznikajú anomálie: pridanie novej zručnosti pre Annu vyžaduje pridanie 7 nových záznamov.
-
-\medskip
-R je v BCNF, lebo neplatia žiadne netriviálne FZ (kľúčom je celá trojica \texttt{emp\_id, project, skill}). BCNF však túto redundanciu neodstránila.
 \end{frame}
 
-\begin{frame}[fragile]{4NF}
-\alert{Multivalued dependencies} (MVD) v relácii $XYZ$:
-$X \twoheadrightarrow Y$, ak pre danú hodnotu $X$ existuje \emph{množina} hodnôt $Y$, ktorá je rovnaká pre každú hodnotu $Z$.
-
-Pre R:
-$ emp\_id \twoheadrightarrow project$, $emp\_id \twoheadrightarrow skill$.
-
-\bigskip
-Relácia je v 4NF, ak v každej netriviálnej MVD $X \twoheadrightarrow Y$ je $X$ je nadkľúč.
-
-\bigskip
-MVD odstraňujeme tiež dekompozíciou, napr. $R$ nahradíme $R_1 = (emp\_id, project)$ a $R_2 = (emp\_id, skill)$.
+\begin{frame}[fragile]{Príklad: databáza kníh}
+Atribúty:\\[3mm]
+\begin{minipage}{.4\pdfpagewidth}
+\scriptsize
+\begin{itemize}
+\item ISBN
+\item Názov
+\item Autor
+\item NárodnosťAutora
+\item Formát
+\item Cena (odporúčaná)
+\end{itemize}
+\end{minipage}
+\begin{minipage}{.4\pdfpagewidth}
+\scriptsize
+\begin{itemize}
+\item Témy (zoznam tém)
+\item PočetStrán
+\item Vydavateľstvo
+\item KontaktVydavateľstvo
+\item Žáner
+\item DefiníciaŽánru
+\end{itemize}
+\end{minipage}
+\\[3mm]
+Predpoklady:
+{
+\footnotesize
+\begin{itemize}
+\item Každú knihu napísal jediný autor a má jediný žáner.
+\item Knihu identifikuje dvojica (Názov, Autor), oplatí sa však pridať umelé idDiela, aby sme mali jednoduchý kľúč.
+\item Knihu vydáva len jediné vydavateľstvo, má len jediné vydanie a jeden jazyk.
+    Môže však byť vo viacerých formátoch; ISBN sa prideľuje osobitne pre jednotlivé formáty (papier, ePub, PDF\dots).
+\end{itemize}
+}
+Identifikujte FZ a bezstratovo dekomponujte do BCNF.
 \end{frame}
+
+
 
 \begin{frame}{Literatúra}
 \begin{itemize}
