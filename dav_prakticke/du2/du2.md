@@ -33,7 +33,7 @@ Tvorba view slúži aj na to, aby ste si preverili pohodlnosť práce s vytvoren
 
 ### Technické pokyny
 
-* Termín na odovzdanie: **15. 12. 2025**.
+* Termín na odovzdanie: **23. 12. 2025**.
 * Súbor `testy.sql` odošlite ako prílohu e-mailu s predmetom `DAV-DU2` na adresu `jan.mazak@fmph.uniba.sk`.
 * Používajte korektnú syntax SQL podporovanú databázou SQLite 3.34 alebo Postgresql 13.17 (overiť si to môžete trebárs na serveri `cvika.dcs.fmph.uniba.sk`). * Riešenia so syntaktickými chybami budú hodnotené len malým počtom bodov.
 **Pred voľbou DBMS** si pozrite [zadanie úlohy 3](../du3/du3.md).

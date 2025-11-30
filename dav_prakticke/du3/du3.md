@@ -74,7 +74,7 @@ Tento test prideľte študentovi s prihlasovacím menom `xyz`.
 
 ### Technické pokyny
 
-* Termín na odovzdanie: **22. 12. 2025**.
+* Termín na odovzdanie: **23. 12. 2025**.
 * Používajte korektnú syntax SQL podporovanú databázou SQLite 3.34 alebo Postgresql 13.17 (overiť si to môžete trebárs na serveri `cvika.dcs.fmph.uniba.sk`).
 * Používajte len základné štandardné knižnice jazyka Python vo verzii 3.9.
 * Riešenia so syntaktickými chybami budú hodnotené len malým počtom bodov.
