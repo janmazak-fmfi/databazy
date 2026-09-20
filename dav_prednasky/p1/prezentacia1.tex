@@ -29,7 +29,7 @@
 \DeclareMathOperator{\antijoin}{\rhd}
 
 \DeclareMathOperator{\lubi}{lubi}
-\DeclareMathOperator{\capuje}{capuje}
+\DeclareMathOperator{\predava}{predava}
 \DeclareMathOperator{\navstivil}{navstivil}
 \DeclareMathOperator{\vypil}{vypil}
 \DeclareMathOperator{\answer}{answer}
@@ -213,46 +213,46 @@ Ako interpretovať tvrdenie \uv{chlieb predávajú v potravinách}?
 \end{frame}
 
 \begin{frame}{Ukážka relač. kalkulu, datalogu a relačnej algebry}
-Alkoholy, ktoré ľúbi každý pijan (ktorý niečo ľúbi), čapujú ich všade (kde niečo čapujú) a niekto ich už pil.
+Nápoje, ktoré ľúbi každý konzument (ktorý niečo ľúbi), predávajú ich v~každom podniku (kde niečo predávajú) a niekto ich už pil.
 
 {\scriptsize
 \begin{align*}
-\Big\{A\mid (\exists I\,\exists M\vypil(I, A, M))&\land \lnot \Big[\exists P (\exists A_2\lubi(P, A_2))\land\lnot\lubi(P, A))\Big)\Big]\\
-&\land \lnot\Big[\exists K \Big((\exists A_2 \capuje(K, A_2))\land \lnot\capuje(K, A)\Big)\Big]\Big\}
+\Big\{N\mid (\exists I\,\exists M\vypil(I, N, M))&\land \forall K \Big( (\exists N_2\lubi(K, N_2))\implies \lubi(K, N)\Big)\\
+&\land \forall P \Big((\exists N_2 \predava(P, N_2))\implies \predava(P, N)\Big)\Big\}
 \end{align*}
 }
 {\scriptsize
 \begin{align*}
-\operatorname{nelubenyNiekym}(A) &\leftarrow \vypil(\_, A, \_), \lubi(P, \_), \lnot\lubi(P, A).\\
-\operatorname{necapovanyNiekde}(A) &\leftarrow \vypil(\_, A, \_), \capuje(K, \_), \lnot\capuje(K, A).\\
-\answer(A) &\leftarrow \vypil(\_, A, \_), \lnot\operatorname{nelubenyNiekym}(A), \lnot\operatorname{necapovanyNiekde}(A).\\
+\operatorname{nelubenyNiekym}(N) &\leftarrow \vypil(\_, N, \_), \lubi(K, \_), \lnot\lubi(K, N).\\
+\operatorname{nepredavanyNiekde}(N) &\leftarrow \vypil(\_, N, \_), \predava(P, \_), \lnot\predava(P, N).\\
+\answer(N) &\leftarrow \vypil(\_, N, \_), \lnot\operatorname{nelubenyNiekym}(N), \lnot\operatorname{nepredavanyNiekde}(N).\\
 \end{align*}
 }
 \vskip -2mm
 \vskip -2mm
 {\scriptsize
 \begin{align*}
-\operatorname{nelubenyNiekym} & = (\pi_A(\vypil)\times \pi_P(\lubi))\antijoin \lubi\\
-\operatorname{necapovanyNiekde} & = (\pi_A(\vypil)\times \pi_K(\capuje))\antijoin \capuje\\
-\answer & = ((\pi_A(\vypil) \antijoin \operatorname{nelubenyNiekym})\antijoin \operatorname{necapovanyNiekde}\\
+\operatorname{nelubenyNiekym} & = (\pi_N(\vypil)\times \pi_K(\lubi))\antijoin \lubi\\
+\operatorname{nepredavanyNiekde} & = (\pi_N(\vypil)\times \pi_P(\predava))\antijoin \predava\\
+\answer & = ((\pi_N(\vypil) \antijoin \operatorname{nelubenyNiekym})\antijoin \operatorname{nepredavanyNiekde}\\
 \end{align*}
 }
 \end{frame}
 
 \begin{frame}[fragile]
 \frametitle{Ukážka SQL}
-Alkoholy, ktoré ľúbi každý pijan (ktorý niečo ľúbi), čapujú ich všade (kde niečo čapujú) a niekto ich už pil.
+Nápoje, ktoré ľúbi každý konzument (ktorý niečo ľúbi), predávajú ich v~každom podniku (kde niečo predávajú) a niekto ich už pil.
 
 {\scriptsize
 \begin{verbatim}
-    SELECT DISTINCT v.A
+    SELECT DISTINCT v.N
     FROM vypil v
     WHERE NOT EXISTS (SELECT 1 FROM lubi l
                       WHERE NOT EXISTS (SELECT 1 FROM lubi l2
-                                        WHERE l2.P = l.P AND l2.A = v.A))
-        AND NOT EXISTS (SELECT 1 FROM capuje c
-                        WHERE NOT EXISTS (SELECT 1 FROM capuje c2
-                                        WHERE c2.K = c.K AND c2.A = v.A))
+                                        WHERE l2.K = l.K AND l2.N = v.N))
+        AND NOT EXISTS (SELECT 1 FROM predava p
+                        WHERE NOT EXISTS (SELECT 1 FROM predava p2
+                                        WHERE p2.P = p.P AND p2.N = v.N))
 \end{verbatim}
 }
 \end{frame}
@@ -293,7 +293,7 @@ Príklady funkcionalít s nízkou podporou:
 
 \begin{frame}
 \frametitle{NoSQL databázy}
-\begin{theorem}[CAP theorem, proved in 2002]
+\begin{theorem}[CAP theorem for distributed systems, 2002]
 Neexistuje systém, ktorý má zároveň tieto 3 vlastnosti:
 \begin{itemize}
 \item consistency
@@ -310,11 +310,11 @@ Neexistuje systém, ktorý má zároveň tieto 3 vlastnosti:
 \end{frame}
 
 
-\begin{frame}{Databases used by professionals (2022)}
-\includegraphics[scale=.15]{commondb_modified.png}\\
-{\tiny \url{https://survey.stackoverflow.co/2022/}}\\[3mm]
+\begin{frame}{Databases used by professionals (2025)}
+\includegraphics[scale=.26]{commondb2025_modified.png}\\
+{\tiny \url{https://survey.stackoverflow.co/2025/}}\\[3mm]
 {\small yellow --- relational databases (SQL)}\\
-{\small others --- not relational, NoSQL}
+{\small red --- not relational, NoSQL}
 \end{frame}
 
 \begin{frame}{DBMS na tomto predmete}
