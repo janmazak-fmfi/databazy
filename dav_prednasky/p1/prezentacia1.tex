@@ -244,6 +244,13 @@ Nápoje, ktoré ľúbi každý konzument (ktorý niečo ľúbi), predávajú ich
 Nápoje, ktoré ľúbi každý konzument (ktorý niečo ľúbi), predávajú ich v~každom podniku (kde niečo predávajú) a niekto ich už pil.
 
 {\scriptsize
+\begin{align*}
+\Big\{N\mid (\exists I\,\exists M\vypil(I, N, M))&\land \lnot \Big[\exists K (\exists N_2\lubi(K, N_2))\land\lnot\lubi(K, N)\Big]\Big]\\
+&\land \lnot\Big[\exists P \Big((\exists N_2 \predava(P, N_2))\land \lnot\predava(P, N)\Big)\Big]\Big\}
+\end{align*}
+}
+\vskip -2mm
+{\scriptsize
 \begin{verbatim}
     SELECT DISTINCT v.N
     FROM vypil v
