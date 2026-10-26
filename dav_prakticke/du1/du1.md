@@ -40,8 +40,8 @@ _Vyhýbajte sa korelovaným vnoreným dotazom využívajúcim IN a NOT IN, radš
 
 ### Technické pokyny
 
-* Termín na odovzdanie: **2. 11. 2025**
-* Používajte korektnú syntax SQL podporovanú databázou SQLite 3.34 (overiť si to môžete trebárs na serveri `cvika.dcs.fmph.uniba.sk`). Riešenia so syntaktickými chybami budú hodnotené len minimálnym počtom bodov.
+* Termín na odovzdanie: **9. novembra 2026**
+* Používajte korektnú syntax SQL podporovanú databázou SQLite vo verzii na serveri `cvika.dcs.fmph.uniba.sk` (SQLite 3.40.1); lokálne môžete používať aj novšiu verziu, ale nepoužívajte konštrukcie, ktoré verzia 3.40.1 nepodporuje. Riešenia so syntaktickými chybami budú hodnotené len minimálnym počtom bodov.
 * Každý dotaz aj s pomocnými reláciami zapíšte do osobitného súboru s príponou `.sql` pomenovaného písmenom zodpovedajúcim zadanému dotazu (napr. `a.sql`). **Okrem komentárov by v ňom nemalo byť nič navyše** (napr. žiadne príkazy ako `.mode`).
 * Súbory `a.sql`, `b.sql`, `c.sql`, `d.sql` odošlite ako prílohu e-mailu zo školskej adresy na adresu `jan.mazak@fmph.uniba.sk` s predmetom `DAV-DU1`.
 * Na usporiadaní výsledku dotazu síce zásadne nezáleží, ale robí výsledok deterministickým, preto nezabudnite na príslušný `ORDER BY`.

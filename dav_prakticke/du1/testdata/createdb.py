@@ -1,5 +1,4 @@
 import random
-import datetime
 import sys
 
 
@@ -12,15 +11,18 @@ lubi = []
 pijani = []
 alkoholy = []
 cenyAlkoholov = {}
+cenyKrciem = {}  # (krcma, alkohol) -> cena, only for pubs whose price differs from the global one
 krcmy = []
 navstevy = []
 
 nextid = 1
 
 random.seed(0)
+# separate seeded generator for the sub-second part, so the output is reproducible
+usec_random = random.Random(0)
 
 def random_time():
-	return 1000000 * random.randint(1, 100) + datetime.datetime.now().microsecond
+	return 1000000 * random.randint(1, 100) + usec_random.randint(0, 999999)
 
 def prepare_default():
     for i in range(1, POCET_PIJANOV+1):
@@ -77,7 +79,9 @@ def prepare_b():
     for alkohol in alkoholy:        
         for (krcma, alkoholykrcmy) in krcmy:
             if alkohol in alkoholykrcmy:
-                navstevy.append((None, 'b_p1', krcma, alkoholy[0], mnozstvo, od))
+                # b_p1 drinks alkoholy[0] only where the pub serves it; elsewhere the visit has no drink
+                vypite = alkoholy[0] if alkoholy[0] in alkoholykrcmy else None
+                navstevy.append((None, 'b_p1', krcma, vypite, mnozstvo, od))
                 mnozstvo += random.randint(0, 1)
                 od += 1
     for i in range(5):
@@ -113,10 +117,30 @@ def prepare_c():
                 navstevy.append((None, pijan, krcma, alkohol, mnozstvo, random_time()))
 
 
+def cena(krcma, alkohol):
+    return cenyKrciem.get((krcma, alkohol), cenyAlkoholov[alkohol])
+
 def prepare_d():
     alkohol = list(cenyAlkoholov.keys())[0]
+    # d_k2 serves the same alcohol as d_k1, but more expensively
+    cenyKrciem[("d_k1", alkohol)] = 2
+    cenyKrciem[("d_k2", alkohol)] = 4
     krcmy.append(("d_k1", [alkohol]))
+    krcmy.append(("d_k2", [alkohol]))
     navstevy.append((None, "d_p1", "d_k1", None, None, 5))
+    # d_p2 likes only alkohol. He first visits the expensive pub d_k2 and drinks there, then the cheap
+    # pub d_k1 (where he drinks it again). For d_k1 he drank it elsewhere before and never after, so he
+    # is loyal to d_k1 in (a). In (d) he is ok: he has not visited a cheaper pub before the visit to d_k2.
+    lubi.append(("d_p2", alkohol))
+    pijani.append("d_p2")
+    navstevy.append((None, "d_p2", "d_k2", alkohol, 3, 10))
+    navstevy.append((None, "d_p2", "d_k1", alkohol, 2, 20))
+    # d_p3 first visits the cheap pub d_k1 (no drink), then drinks at d_k2. He is not ok in (d), since he
+    # visited the cheaper pub before; a reading that ignores the visit history would accept him.
+    lubi.append(("d_p3", alkohol))
+    pijani.append("d_p3")
+    navstevy.append((None, "d_p3", "d_k1", None, None, 10))
+    navstevy.append((None, "d_p3", "d_k2", alkohol, 3, 20))
 
 
 def print_db_datalog():
@@ -125,7 +149,7 @@ def print_db_datalog():
     for i in range(len(krcmy)):
         krcma, alkoholykrcmy = krcmy[i]
         for j in range(len(alkoholykrcmy)):
-            print("capuje(" + krcma + ", " + alkoholykrcmy[j] + ", " + str(cenyAlkoholov[alkoholykrcmy[j]]) + ").")
+            print("capuje(" + krcma + ", " + alkoholykrcmy[j] + ", " + str(cena(krcma, alkoholykrcmy[j])) + ").")
     navstivil = []
     vypil = []
     for (ident, p, k, a, m, od) in navstevy:
@@ -145,13 +169,23 @@ def print_db_datalog():
 def qqq(x):
     return "'" + x + "'"
 
-def print_db_sql():
-    print("""
-DROP TABLE IF EXISTS vypil CASCADE;
-DROP TABLE IF EXISTS navstivil CASCADE;
-DROP TABLE IF EXISTS capuje CASCADE;
-DROP TABLE IF EXISTS lubi CASCADE;
+HEADER = """-- Test data for DU1. Load with: sqlite3 pijani.db < pijani.sql, or: psql -f pijani.sql
+--
+-- The script runs in a single transaction. If DROP TABLE fails in PostgreSQL because you created
+-- views on these tables, the database stays unchanged. In that case drop those views (DROP VIEW ...)
+-- or add CASCADE to the DROP TABLE statements below (this drops the dependent views too) and rerun."""
 
+def insert_sql(table, rows):
+    return "INSERT INTO " + table + " VALUES\n" + ",\n".join("    (" + r + ")" for r in rows) + ";\n"
+
+def print_db_sql():
+    print(HEADER)
+    print()
+    print("BEGIN;")
+    print()
+    for t in ["vypil", "navstivil", "capuje", "lubi"]:
+        print("DROP TABLE IF EXISTS " + t + ";")
+    print("""
 CREATE TABLE lubi (
     Pijan TEXT,
     Alkohol TEXT
@@ -177,13 +211,13 @@ CREATE TABLE vypil (
 );
 """)
 
-    for i in range(len(lubi)):
-        print("INSERT INTO lubi VALUES (" + qqq(lubi[i][0]) + ", " + qqq(lubi[i][1]) + ");")
+    print(insert_sql("lubi", [qqq(p) + ", " + qqq(a) for (p, a) in lubi]))
 
-    for i in range(len(krcmy)):
-        krcma, alkoholykrcmy = krcmy[i]
-        for j in range(len(alkoholykrcmy)):
-            print("INSERT INTO capuje VALUES (" + qqq(krcma) + ", " + qqq(alkoholykrcmy[j]) + ", " + str(cenyAlkoholov[alkoholykrcmy[j]]) + ");")
+    capuje = []
+    for krcma, alkoholykrcmy in krcmy:
+        for a in alkoholykrcmy:
+            capuje.append(qqq(krcma) + ", " + qqq(a) + ", " + str(cena(krcma, a)))
+    print(insert_sql("capuje", capuje))
 
     navstivil = []
     vypil = []
@@ -192,14 +226,12 @@ CREATE TABLE vypil (
             global nextid
             ident = nextid
             nextid += 1
-        navstivil.append("INSERT INTO navstivil VALUES (" + str(ident) + ", " + qqq(p) + ", " + qqq(k) + ", " + str(od) + ");")
+        navstivil.append(str(ident) + ", " + qqq(p) + ", " + qqq(k) + ", " + str(od))
         if a != None:
-            vypil.append("INSERT INTO vypil VALUES (" + str(ident) + ", " + qqq(a) + ", " + str(m) + ");")
-    for s in navstivil:
-        print(s)
-    print("\n")
-    for s in vypil:
-        print(s)
+            vypil.append(str(ident) + ", " + qqq(a) + ", " + str(m))
+    print(insert_sql("navstivil", navstivil))
+    print(insert_sql("vypil", vypil))
+    print("COMMIT;")
 
 prepare_default()
 prepare_a()
@@ -225,7 +257,5 @@ WHERE NOT EXISTS (
 	AND nv3.Pijan = nv2.Pijan AND nv3.Alkohol = nv2.Alkohol AND nv3.Krcma <> nv2.Krcma AND nv3.Od > nv2.Od
 )
 ORDER BY nv.Pijan, nv.Krcma;
-
-['[a_p1,default_k01]', '[a_p2,default_k01]', '[a_p2,default_k02]', '[a_p2,default_k03]', '[a_p2,default_k04]', '[b_p000,default_k03]', '[b_p001,default_k09]', '[b_p002,default_k05]', '[b_p003,default_k09]', '[b_p004,default_k01]', '[default_p02,default_k09]', '[default_p09,default_k01]']
 """
 

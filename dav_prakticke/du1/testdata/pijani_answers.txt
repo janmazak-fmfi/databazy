@@ -9,6 +9,8 @@
 [b_p002,default_k01]
 [b_p003,default_k06]
 [b_p004,default_k05]
+[d_p2,d_k1]
+[d_p3,d_k2]
 [default_p09,default_k01]
 
 (b)
@@ -30,4 +32,5 @@
 
 (d)
 [d_p1]
+[d_p2]
 
