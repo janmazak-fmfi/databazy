@@ -1,0 +1,1045 @@
+\PassOptionsToPackage{dvipsnames}{xcolor}
+\documentclass[12pt]{beamer}
+\usetheme{default}
+\usecolortheme{crane}
+
+\usepackage[T1]{fontenc}
+\usepackage[slovak]{babel}
+\usepackage{amsmath,amssymb}
+\usepackage{graphicx,array,booktabs,alltt,listings,tikz}
+\usetikzlibrary{arrows.meta,positioning}
+\setbeamertemplate{footline}[frame number]
+\beamertemplatenavigationsymbolsempty
+\setbeameroption{hide notes}
+
+\def\blue#1{\textcolor{Cerulean}{#1}}
+\def\green#1{\textcolor{LimeGreen}{#1}}
+\newcommand\qsp{\hskip.25em plus.08333em minus.083333em}
+\newcommand\dash{\unskip\qsp\hbox{--\kern-.25em--}\qsp}
+\providecommand{\uv}[1]{\quotedblbase #1\textquotedblleft}
+\newcommand{\dfn}[1]{\emph{#1}}
+\newcommand{\quant}[2]{\mathop{#1#2\/}\nolimits}
+\newcommand{\A}{\quant\forall}
+\newcommand{\E}{\quant\exists}
+\newcommand{\proves}{\vdash}
+\newcommand{\nproves}{\nvdash}
+\newcommand{\entails}{\vDash}
+\newcommand{\nentails}{\nvDash}
+\newcommand{\limpl}{\rightarrow}
+\newcommand{\lequiv}{\leftrightarrow}
+\newcommand{\Equiv}{\mathrel{\Leftrightarrow}}
+\newcommand{\emptyclause}{\Box}
+\newcommand{\RULE}[2]{\ensuremath{\begin{array}{c}#1\\\hline#2\end{array}}}
+\newcommand{\bigO}{\mathcal{O}}
+\newcommand{\Lang}[1][]{\mathcal{L}_{\text{#1}}}
+
+% Based on the Lean listings in Logika 2, p1/p1.tex.
+\lstdefinelanguage{Lean}{
+  keywords={variable,theorem,def,by,intro,obtain,exact,Prop,example,import,
+    List,Nat,Type,fun,let,have,show,if,then,else,sorry},
+  comment=[l]{--},
+  literate={∃}{$\exists$}{1} {∀}{$\forall$}{1}
+    {∧}{$\land$}{1} {∨}{$\lor$}{1} {¬}{$\neg$}{1}
+    {→}{$\to$}{1} {↔}{$\leftrightarrow$}{1}
+    {⟨}{$\langle$}{1} {⟩}{$\rangle$}{1}
+    {ℕ}{$\mathbb{N}$}{1} {∈}{$\in$}{1}
+    {≤}{$\le$}{1} {≥}{$\ge$}{1} {≠}{$\ne$}{1}
+    {×}{$\times$}{1} {₁}{$_1$}{1} {₂}{$_2$}{1},
+  basicstyle=\ttfamily\small,
+  keywordstyle=\color{blue}\bfseries,
+  commentstyle=\color{gray}\itshape,
+  showstringspaces=false,
+  columns=fullflexible,
+  breaklines=true,
+  keepspaces=true
+}
+
+\title{Logika, vyjadrovacia sila\\a formálna verifikácia}
+\author{Ján Mazák}
+\institute{FMFI UK Bratislava}
+\date{}
+
+\begin{document}
+\frame{\titlepage}
+
+\section{Formálne teórie a hranice rozhodovania}
+% Existing frames are copied from the sources noted at the start of each frame.
+
+% Adapted from Logika 1, pr12.pdf p. 4 (informational final lecture).
+\begin{frame}
+  Cieľom tejto prednášky je umožniť vám získať predstavu o matematickej logike
+  a niektorých jej významných výsledkoch.
+  Prednáška zároveň naznačí, prečo dotazovacie jazyky majú obmedzenú vyjadrovaciu silu.
+  K tvrdeniam uvedeným v prezentácii pristupujte opatrne,
+  podané sú v zjednodušenej forme a občas sú zamlčané technickejšie predpoklady.
+
+  \bigskip
+
+  Prednáška je informačná; obsah nebude na skúške.
+\end{frame}
+
+% Terminology from Logika 1, pr07.pdf p.17, 7-kvantifikatory/2-syn.tex;
+% add function symbols as used in pr12, frame Peanova aritmetika.
+\begin{frame}{Jazyk logiky 1.~rádu}
+  \begin{itemize}
+    \item \alert{Logické symboly}: spojky $\lnot,\land,\lor,\limpl$,
+      kvantifikátory $\forall,\exists$ a~rovnosť~$=$.
+    \item Indivíduové premenné $x,y,\ldots$ a~pomocné symboly (zátvorky, čiarka).
+    \item \alert{Mimologické symboly} si volíme podľa toho, o~čom chceme hovoriť:
+      \begin{itemize}
+        \item predikátové symboly pre vzťahy, napr. binárny~$R$;
+        \item funkčné symboly pre funkcie, napr. unárny~$f$;
+        \item indivíduové konštanty pre konkrétne objekty, napr.~$c$.
+      \end{itemize}
+  \end{itemize}
+  Počet argumentov symbolu je jeho \emph{arita}.
+
+  \medskip
+  Interpretácia určí konkrétne objekty, vzťahy a~funkcie.
+  Napr. nad $\mathbb N$ môžeme $c$ interpretovať ako~$0$,
+  $f$ ako $n\mapsto n+1$ a~$R$ ako~$\le$.
+\end{frame}
+
+% New mathematical examples requested for theory, model and entailment.
+% Partial orders are already covered in the compulsory discrete mathematics.
+\begin{frame}{Teória: čiastočné usporiadanie}
+  \alert{Teória} je množina uzavretých formúl (bez voľných premenných) vo zvolenom jazyku.
+  Napr. jazyk má jeden binárny predikátový symbol~$R$ a~teória~$T$ obsahuje formuly
+  \begin{align*}
+    &\forall x\ R(x,x)
+      &&\text{reflexivita},\\
+    &\forall x\forall y\ (R(x,y)\land R(y,x)\limpl x=y)
+      &&\text{antisymetria},\\
+    &\forall x\forall y\forall z\
+      (R(x,y)\land R(y,z)\limpl R(x,z))
+      &&\text{tranzitivita}.
+  \end{align*}
+  To, či je zápis formulou, je čisto syntaktická otázka.
+  Zatiaľ neurčujeme množinu prvkov ani konkrétny význam~$R$.
+  O~pravdivosti formuly hovoríme až po voľbe domény
+  a~interpretácie mimologických symbolov.
+\end{frame}
+
+% Logika 1, pr07.pdf p.29, 7-kvantifikatory/3-sem.tex;
+% retain the definition and add the interpretation of function symbols.
+\begin{frame}{Štruktúra}
+  Nech $\Lang$ je jazyk logiky prvého rádu.
+  \alert{Štruktúrou} pre jazyk~$\Lang$
+  nazývame dvojicu $\mathcal M=(D,i)$, kde
+  \begin{itemize}
+    \item $D$ je ľubovoľná \alert{neprázdna} množina
+      nazývaná \emph{doména} štruktúry~$\mathcal M$;
+    \item $i$ je zobrazenie, nazývané \emph{interpretačná funkcia}, ktoré
+      \begin{itemize}
+        \item každej indivíduovej konštante~$c$ jazyka~$\Lang$
+          priraďuje prvok $i(c)\in D$;
+        \item každému predikátovému symbolu~$P$ s~aritou~$n$
+          priraďuje reláciu $i(P)\subseteq D^n$;
+        \item každému funkčnému symbolu~$f$ s~aritou~$n$
+          priraďuje funkciu $i(f)\colon D^n\to D$.
+      \end{itemize}
+  \end{itemize}
+  Rovnosť sa interpretuje ako rovnosť prvkov domény~$D$.
+\end{frame}
+
+\begin{frame}{Model teórie}
+  \alert{Model teórie~$T$} je štruktúra, v~ktorej sú splnené všetky formuly z~$T$.
+  Píšeme $\mathcal M\models T$.
+  \begin{itemize}
+    \item $D=\mathbb N$, $i(R)={\le}$: model našej teórie~$T$.
+    \item $D=\mathcal P(\{1,2\})$, $i(R)={\subseteq}$: tiež model~$T$. ($\mathcal P(A)$ označuje množinu všetkých podmnožín~$A$.)
+    \item $D=\mathbb Z$, $i(R)={<}$: nie je model~$T$, neplatí reflexivita.
+  \end{itemize}
+
+  \medskip
+  Rovnaká teória môže mať rôzne modely, konečné aj nekonečné.
+\end{frame}
+
+% Axiom terminology is introduced only after theories and models.
+% One illustrative formula per theory, not a list of their axioms.
+\begin{frame}{Teórie pre konkrétne oblasti matematiky}
+  Pri opise konkrétnej oblasti matematiky si vyberáme konkrétnu teóriu
+  a~jej formulám hovoríme \alert{axiómy}.
+
+  \medskip
+  \alert{Peanova aritmetika (PA)}: aritmetika prirodzených čísel.
+  Napr. jedna z~axióm:
+  \[
+    \forall x\ (x+0=x).
+  \]
+
+  \alert{ZFC}: teória množín. Napr. axióma extenzionality:
+  \[
+    \forall A\forall B\ \bigl(\forall x\,(x\in A\leftrightarrow x\in B)
+      \limpl A=B\bigr).
+  \]
+  Množiny s~rovnakými prvkami sa rovnajú.
+  \note{V ZFC premenné A, B aj x označujú objekty domény, teda množiny;
+    ide o kvantifikátory prvého rádu. Uvedené sú iba dva príklady formúl,
+    nie celé axiomatizácie PA či ZFC. Vzorec PA je zo zdrojových slidov
+    Logika 1, pr12, rámec Peanova aritmetika.}
+\end{frame}
+
+\begin{frame}{Pravdivosť v modeli a vyplývanie z teórie}
+  Pre uzavretú formulu~$F$ zápis
+  \alert{$\mathcal M\models F$} znamená, že $F$ je splnená v~štruktúre~$\mathcal M$ (\uv{pravdivá pre konkrétnu interpretáciu mimologických symbolov}).
+
+  \medskip
+  \alert{$T\models F$}: formula~$F$ platí v~\alert{každom modeli} teórie~$T$.
+
+  \medskip
+  Pre našu teóriu čiastočného usporiadania uvažujme
+  \[
+    F=\forall x\forall y\ (R(x,y)\lor R(y,x)).
+  \]
+  \vspace*{-5mm}
+  \begin{itemize}
+    \item Pre $D=\mathbb N$ a~$i(R)={\le}$ platí~$F$.
+    \item Pre $D=\mathcal P(\{1,2\})$ a~$i(R)={\subseteq}$ neplatí~$F$:
+      množiny $\{1\}$ a~$\{2\}$ sú neporovnateľné.
+  \end{itemize}
+  Preto $T\not\models F$ a~$T\not\models\lnot F$ --- formula $F$ je od teórie $T$ nezávislá.
+\end{frame}
+
+% A finite-sequence definition, relative to chosen inference rules.
+% The example of an inference rule is copied from Logika 2, p1/p1.tex.
+\begin{frame}{Formálny dôkaz a dokázateľnosť}
+  Zvoľme odvodzovacie pravidlá dokazovacieho kalkulu.
+  \alert{Dôkaz formuly~$F$ z~teórie~$T$} je konečná postupnosť
+  $F_1,\ldots,F_n=F$, kde každá formula~$F_i$
+  \begin{itemize}
+    \item patrí do~$T$, alebo
+    \item vznikne z~predchádzajúcich formúl použitím odvodzovacieho pravidla.
+  \end{itemize}
+  Napr. pravidlo modus ponens:
+  \[
+    \frac{A\qquad A\limpl B}{B}.
+  \]
+  $T\vdash F$: existuje takýto formálny dôkaz~$F$ z~$T$.
+  \note{Pravidlá môžu mať aj nulový počet premís. Modus ponens je iba
+    príklad, nie celý kalkul. Iné kalkuly môžu dôkaz zapisovať stromom
+    či termom; podstatné sú presné lokálne podmienky jednotlivých krokov.}
+\end{frame}
+
+% Adapted from Matematická logika, p1.pdf p. 10; original p1/p1.tex.
+\begin{frame}{Rezolvencia}
+\textbf{Rezolvencia} operuje nad klauzulami (disjunkciami literálov)
+a odvodzuje nové klauzuly, kým nenájde spor (prázdnu klauzulu).
+
+\[
+\frac{(A \lor C_1\lor C_2) \qquad (\lnot A \lor B_1\lor B_2)}
+     {C_1\lor C_2 \lor B_1\lor B_2}
+\]
+
+\textbf{Dôkaz sporom:} pri dôkaze~$F$ z~$T$ pridáme $\lnot F$
+a~po prepise do klauzúl zachovávajúcom splniteľnosť
+odvodíme prázdnu klauzulu.
+
+\textbf{Korektnosť:} rezolventa vyplýva z rodičovských klauzúl.
+
+\medskip
+Používame tu malú sadu pravidiel na odvodenie prázdnej klauzuly,
+ale dôkaz zostáva postupnosťou algoritmicky ľahko overiteľných krokov,
+rovnako ako v~mnohých ďalších dokazovacích systémoch,
+ktoré logici počas dejín vytvorili.
+
+\end{frame}
+
+% Adapted from Matematická logika, p1.pdf p. 11; original p1/p1.tex.
+\begin{frame}{Rezolvencia: príklad dôkazu}
+Dokážeme nesplniteľnosť množiny
+\[
+  \{ A\lor B,\qquad \lnot A,\qquad \lnot B\}.
+\]
+\begin{enumerate}
+  \item Rezolvujeme $A\lor B$ s $\lnot A$, dostaneme $B$.
+  \item Rezolvujeme $B$ s $\lnot B$, dostávame prázdnu klauzulu,
+        tá je nesplniteľná.
+\end{enumerate}
+\end{frame}
+
+% Adapted from Logika 1, pr10.pdf p. 37; original 10-def-korekt/7-unifikacia.tex.
+\begin{frame}{Rezolvencia v logike 1.~rádu: unifikácia}
+Čo možno usúdiť z nasledujúcich dvoch formúl?
+\[
+  \forall y\,P(f(y),y),
+  \qquad
+  \forall x\,(\lnot P(x,d)\lor R(x))
+\]
+Dosadenie popisujeme pomocou substitúcie:
+\[
+  \sigma=\{x\mapsto f(d),\ y\mapsto d\}.
+\]
+Po substitúcii~$\sigma$ majú komplementárne literály rovnaké argumenty
+predikátu (preto $\sigma$ nazývame \emph{unifikátor}):
+$P(f(d),d)$ a $\lnot P(f(d),d)$.
+
+Jedným z dôsledkov uvedených dvoch formúl je teda $R(f(d))$.
+\end{frame}
+
+% Adapted from Logika 1, pr12.pdf p. 6; original 12-advanced/1-druhoradova.tex.
+\begin{frame}{Pravdivosť a dokázateľnosť}
+  Uvažujme jazyk logiky 1.~rádu a v ňom teóriu $T$ a formulu $F$.
+  \begin{block}{Veta o~korektnosti logiky 1.~rádu}
+    Ak $T\proves F$, tak $T\entails F$.
+  \end{block}
+  \begin{block}{Veta o~úplnosti logiky 1.~rádu}
+    Ak $T\entails F$, tak $T\proves F$.
+  \end{block}
+
+  Úplnosť nie je samozrejmá: $T\models F$ hovorí o~všetkých modeloch,
+  aj o~tých s~nespočítateľnou doménou, ktorej prvky nemožno
+  algoritmicky enumerovať.
+
+  Pre platnú formulu musí existovať dôkaz. Pre neplatnú musí existovať protipríklad (model, v ktorom neplatí).
+  Ani jedno z toho však nemusíme vedieť algoritmicky nájsť.
+\end{frame}
+
+% New short orientation slide, based on Logika 1, pr12.pdf p. 21.
+\begin{frame}{Nerozhodnuteľné problémy}
+\begin{itemize}
+  \item \alert{Rozhodnuteľný problém:} existuje algoritmus, ktorý vždy skončí
+        a odpovie správne áno alebo nie.
+  \item \alert{Čiastočne rozhodnuteľný problém:} algoritmus vždy potvrdí
+        odpoveď áno, ak je správna; pri odpovedi nie môže bežať navždy.
+  \item \alert{Ani čiastočne rozhodnuteľný:} neexistuje ani takýto
+        jednostranne zaručený algoritmus.
+\end{itemize}
+
+\medskip
+Príklady nerozhodnuteľných problémov:
+\begin{itemize}
+  \item \emph{Problém zastavenia programu:} zastaví sa daný program pre daný vstup?
+  \item \emph{Ekvivalencia dvoch programov v~C:} majú pre každý vstup rovnaký
+    výsledok?
+\end{itemize}
+\end{frame}
+
+% Theorem statements adapted from Logika 1, pr12.pdf pp. 16 and 21;
+% original 12-advanced/2-nerozhodnutelnost.tex. Proofs omitted.
+\begin{frame}{Platnosť formuly vo FOL}
+\begin{block}{Veta}
+  Platnosť formuly v prvorádovej logike je nerozhodnuteľná.
+\end{block}
+
+Z~korektnosti a~úplnosti: formula je platná práve vtedy, keď má dôkaz.
+Systematicky enumerujeme všetky dôkazy; ak je formula platná,
+jej dôkaz skôr či neskôr nájdeme.
+Tak dostávame \alert{čiastočný rozhodovací postup}.
+
+\medskip
+Na hľadaní dôkazov sú založené automatické dokazovače.
+Rezolvencia s~unifikáciou sa vo FOL v~praxi osvedčila ako účinná metóda automatického dokazovania.
+Opakovane odvodzujú pomocou heuristík nové a nové dôsledky (v súlade s pravidlami) a dúfajú, že raz trafia kompletný dôkaz.
+
+\medskip
+Otázka, či veta FOL \emph{nie je} platná, nie je ani čiastočne rozhodnuteľná.
+\note{Uvažujeme efektívne zadaný jazyk. Úplné systematické hľadanie
+  zaručuje nájdenie každého existujúceho dôkazu; táto teoretická záruka
+  sa nesmie zamieňať so zárukou praktického heuristického či časovo
+  obmedzeného behu dokazovača.}
+\end{frame}
+
+% Restored from Logika 1, pr12.pdf p.21, 2-nerozhodnutelnost.tex.
+% Satisfiability statement from p.21; monadic FOL from p.22 as a brief curiosity.
+\begin{frame}{Splniteľnosť v prvorádovej logike}
+  \begin{block}{Veta}
+    Splniteľnosť v~prvorádovej logike je nerozhodnuteľná;
+    nie je ani čiastočne rozhodnuteľná.
+  \end{block}
+
+  \medskip
+  \emph{Kuriozita:} monadická prvorádová logika (MFOL) nemá funkčné symboly
+  (ani konštanty) a~jej predikáty majú len jeden argument.
+
+  Platnosť formuly v~MFOL je rozhodnuteľná.
+  Ak pridáme čo len jeden predikát arity~2, platnosť formuly už
+  nie je rozhodnuteľná.
+\end{frame}
+
+
+% New early connection: domain independence and safe relational queries.
+% Zdroj: Abiteboul, Hull, Vianu, Foundations of Databases, 5.4 a 6.3.
+\begin{frame}{Bezpečné databázové dotazy}
+  Dotaz je \alert{doménovo nezávislý}, ak rozšírenie domény
+  o~ďalšie hodnoty bez zmeny tabuliek nezmení jeho výsledok.
+
+  \begin{itemize}
+    \item $\lnot\mathrm{Zamestnanec}(x)$ nie je doménovo nezávislý:
+      vracia aj hodnoty mimo databázy. Pri rozšírení domény pribudnú
+      ďalšie výsledky.
+    \item $\mathrm{Osoba}(x)\land\lnot\mathrm{Zamestnanec}(x)$
+      vyberá iba osoby uložené v~tabuľke, ktoré nie sú zamestnancami.
+      Rozšírenie domény výsledok nezmení.
+  \end{itemize}
+
+  Relačná algebra a~relačné jadro SQL umožňujú iba
+  \emph{bezpečné dotazy}: výsledok vieme vypočítať z~konečných dát,
+  bez prehľadávania ľubovoľnej domény.
+
+  \alert{Pre FOL nemožno algoritmicky rozhodnúť, či je zadaný dotaz
+  doménovo nezávislý}, preto bezpečnosť zaručujeme obmedzením
+  povolených zápisov (priamo syntaxou dotazovacieho jazyka).
+  \note{Uvažujeme klasické relačné dotazy v množinovom modeli,
+    bez všeobecných funkcií a rekurzie; príklady majú unárne tabuľky.
+    Doména obsahuje aj konštanty uvedené v dotaze. Doménová nezávislosť
+    je sémantická vlastnosť; bezpečné syntaktické obmedzenia ju zaručujú.
+    Nerozhodnuteľnosť splniteľnosti FOL neznamená, že nevieme
+    vyhodnotiť formulu na konkrétnej konečnej doméne.}
+\end{frame}
+
+% Shortened from Logika 1, pr12.pdf p. 30; 4-neuplnost.tex.
+% Pri enumerovaných axiómach možno ich použitie overiť podľa priloženého
+% počtu krokov enumerácie; samotné členstvo v množine axióm nemusí byť rozhodnuteľné.
+\begin{frame}{Efektívna axiomatizovateľnosť}
+  Teória je \alert{efektívne axiomatizovateľná}, ak spĺňa tieto
+  požiadavky na algoritmickú prácu:
+  \begin{itemize}
+    \item \emph{Symboly:} vieme algoritmicky rozpoznať ich zápis.
+    \item \emph{Termy a~formuly:} vieme rozhodnúť, či je zápis správny.
+    \item \emph{Axiómy:} algoritmus ich postupne všetky vypíše;
+      môže ich byť nekonečne veľa.
+    \item \emph{Odvodzovacie pravidlá:} vieme algoritmicky overiť
+      ich použitie.
+  \end{itemize}
+  Potom môžeme systematicky enumerovať všetky dôkazy
+  a~dokázateľné formuly.
+\end{frame}
+
+% Adapted from Logika 1, pr12.pdf p. 31; original 12-advanced/4-neuplnost.tex.
+\begin{frame}{Sémantická a~negačná úplnosť}
+  Doterajší pojem úplnosti, tzv. \alert{sémantická úplnosť} formálneho systému,
+  hovoril o~tom, že pravdivé veci možno dokázať:\\
+  Pre každú teóriu $T$ a~uzavretú formulu $F$, ak $T\entails F$, tak $T\vdash F$.
+
+  Zaujímavá je však aj \alert{negačná úplnosť} teórie $T$:
+  pre každú uzavretú formulu $F$ (v~jazyku tejto teórie)
+  platí $T\vdash F$ alebo $T\vdash \lnot F$.
+\end{frame}
+
+% Theorem statement adapted from Logika 1, pr12.pdf p. 34;
+% original 12-advanced/4-neuplnost.tex. Proof omitted.
+\begin{frame}{Prvá G\"odelova veta o~neúplnosti}
+  \begin{block}{Veta}
+    Prvorádová teória~$T$ nemôže mať súčasne všetky štyri vlastnosti:
+    \begin{enumerate}
+      \item je konzistentná (nedokazuje spor);
+      \item je efektívne axiomatizovateľná;
+      \item obsahuje dostatočnú aritmetiku (napr. PA);
+      \item je negačne úplná: pre každú uzavretú formulu~$F$ jej jazyka
+        platí $T\vdash F$ alebo $T\vdash\lnot F$.
+    \end{enumerate}
+  \end{block}
+  V princípe: zmysluplné teórie nikdy nehovoria o~všetkom, vždy zostanú
+  nejaké tvrdenia, ktoré z~teórie nemožno ani dokázať, ani vyvrátiť.
+  Matematiku ako celok nemožno plne axiomatizovať.
+\end{frame}
+
+% Theorem statement adapted from Logika 1, pr12.pdf p. 38;
+% original 12-advanced/4-neuplnost.tex. Proof omitted.
+\begin{frame}{Druhá G\"odelova veta o~neúplnosti}
+  \begin{block}{Veta}
+    Ak $S$ je bezosporný efektívne axiomatizovateľný
+    formálny systém obsahujúci aritmetiku (napr. PA),
+    jeho bezospornosť (pri obvyklej formalizácii)
+    nemožno dokázať v~rámci~$S$.
+  \end{block}
+  Čiže dôkaz treba spraviť neformálnou metaúvahou alebo v~rámci iného \uv{silnejšieho} formálneho systému.
+  Ako však dokážeme bezospornosť tohto druhého systému? \dots
+  \note{Štandardná formalizácia vlastných dôkazov a bezospornosti;
+    dostatočná aritmetika pre obvyklé podmienky odvoditeľnosti.}
+\end{frame}
+
+\section{Vyjadrovacia sila a rekurzia}
+% New orientation after Godel's theorems: expressive limits of FOL.
+\begin{frame}{Hranice vyjadrovacej sily FOL}
+  \begin{itemize}
+    \item Vo FOL kvantifikujeme cez prvky domény;
+      predikáty (v~databáze tabuľky) sú pevne dané.
+    \item Chceli by sme sa opýtať: \uv{Existuje v~databáze iná
+      tabuľka disjunktná s~tabuľkou~$R$?}
+      Pri pevnej schéme to vo FOL vieme rozpísať cez jednotlivé tabuľky.
+      Chceli by sme však vyberať tabuľku premennou.
+    \item Ak pridáme premenné pre predikáty a~kvantifikujeme ich,
+      dostaneme \alert{logiku 2.~rádu}. Pri plnej sémantike premenné
+      prechádzajú všetky možné relácie, nielen existujúce tabuľky.
+    \item Ani dosiahnuteľnosť v~grafe sa nedá vyjadriť prvorádovými formulami, ako si čochvíľa dokážeme.
+
+  \end{itemize}
+\end{frame}
+
+% Logika 1, pr12.pdf p.7; 1-druhoradova.tex.
+% Preserve the question; compactness and its use in the proof follow.
+\begin{frame}{Ako vyjadriť tranzitívny uzáver}
+  Majme binárnu reláciu reprezentovanú predikátom~$R$.
+  Pre každé $n\ge 1$ označme $R_n(a,b)$ formulu
+  \[
+    \E{x_1}\E{x_2}\cdots\E{x_n}
+    \bigl(R(a,x_1)\land R(x_1,x_2)\land\dots\land R(x_n,b)\bigr).
+  \]
+  Ďalej nech $R_0=R$ a~nech
+  \[
+    R^*(a,b)\quad\Equiv\quad
+      \hbox{existuje~$n$ také, že platí $R_n(a,b)$}.
+  \]
+  Naše $R^*$ vyjadruje tranzitívny uzáver relácie~$R$.
+
+  \bigskip
+  Dá sa však $R^*$ vyjadriť prvorádovou formulou?
+  \note{Ide o dosiahnuteľnosť cestou kladnej dĺžky. Rekurzívny SQL dotaz
+    už bol v p5a; neopakovať ho. Kompaktnosť sama osebe nedokazuje
+    nevyjadriteľnosť pri obmedzení na konečné štruktúry.}
+\end{frame}
+
+% Compactness from Logika 1, pr12.pdf p.6, 1-druhoradova.tex.
+% Added equivalent formulation and a short finite/infinite-model discussion.
+\begin{frame}{Kompaktnosť logiky 1.~rádu}
+  \begin{block}{Veta o~kompaktnosti}
+    Každá nesplniteľná teória má konečnú podmnožinu, ktorá je nesplniteľná.
+  \end{block}
+  Ekvivalentne: ak má každá konečná podmnožina teórie~$T$ model,
+  potom má model aj celá teória~$T$.
+  \begin{itemize}
+    \item Teória~$T$ pritom môže byť nekonečná.
+    \item Výsledný model nemusí byť konečný. Napr. požiadavky \uv{aspoň $n$ prvkov} pre každé $n\ge1$:
+  každý konečný výber má konečný model, všetky spolu iba nekonečný.
+  \end{itemize}
+\end{frame}
+
+% Shortened from Logika 1, pr12.pdf p.8, 1-druhoradova.tex.
+% One-slide proof over arbitrary structures, with the finite-model caveat visible.
+% Zdroj pre konečný prípad: Libkin, Elements of Finite Model Theory, kapitoly 3 a 4.
+\begin{frame}{Tranzitívny uzáver: dôkaz kompaktnosťou}
+  Predpokladajme, že $R^*$ sa dá vyjadriť prvorádovou formulou
+  vo všetkých štruktúrach. Uvažujme teóriu
+  \[
+    T=\{R^*(a,b)\}\cup\{\lnot R_n(a,b):n\ge0\}.
+  \]
+  \begin{enumerate}
+    \item $T$ nemá model: ak $R^*(a,b)$, tak pre nejaké~$n$ platí $R_n(a,b)$.
+    \item Každá konečná podmnožina~$T$ má model:
+      pre dostatočne veľké~$n$ vyhovuje cesta z~$a$ do~$b$ dĺžky~$n+2$.
+  \end{enumerate}
+  Tieto dve pozorovania sú v~spore s~kompaktnosťou FOL.
+
+  \medskip
+  \alert{Formulou logiky 1.~rádu tranzitívny uzáver nevieme vyjadriť.}
+
+  \medskip
+  (Nevyjadriteľnosť sa dá dokázať aj pre konečné modely.)
+  \note{Kompaktnosť dáva model, nie nevyhnutne konečný model. Ak by
+    kandidátna formula mala správne vyjadrovať dosiahnuteľnosť iba na
+    konečných grafoch, nekonečný model nemusí dať spor. Konečný prípad
+    vyžaduje iný argument (napr. Ehrenfeuchtove-Fraisseho hry).
+    Tento konečný výsledok potom ukazuje, prečo na všeobecnú
+    dosiahnuteľnosť nestačí prvorádové relačné jadro SQL a potrebujeme
+    rozšírenie, napr. rekurziu/fixpoint. Rekurzívny dotaz neopakovať.}
+\end{frame}
+
+% Adapted from Logika 2, p1.pdf pp.37-38, frame Databázy.
+% Connection to the recursive reachability query already covered in p5a.
+\begin{frame}{Databázy: prečo potrebujeme rekurziu}
+  \begin{itemize}
+    \item Relačné jadro SQL bez rekurzie zodpovedá FOL
+      (množinový model, bezpečné dotazy).
+    \item Na dosiahnuteľnosť v grafe teda potrebujeme rozšírenie jazyka:
+      rekurzia počítajúca \alert{najmenší pevný bod}
+      (\emph{least fixed point}, LFP) prekonáva túto hranicu FOL.
+    \item Najmenší pevný bod vypočítame už známou naivnou
+      alebo seminaivnou evaluáciou.
+  \end{itemize}
+  \note{Nejde o celé SQL s agregáciami, NULL a všeobecnými funkciami.
+    Opisujeme lineárnu rekurziu pre dosiahnuteľnosť: k už nájdenej ceste
+    pripojíme jednu hranu a odstránime duplicity. Obe evaluácie počítajú
+    tú istú najmenšiu reláciu obsahujúcu hrany a uzavretú na toto pravidlo.
+    Seminaivná evaluácia vynechá rozvíjanie starých dvojíc.
+    Aj na konečných grafoch dosiahnuteľnosť nie je vyjadriteľná vo FOL;
+    tento fakt sme uviedli bez dôkazu. LFP je jedno užitočné rozšírenie;
+    netvrdíme, že každý rekurzívny SQL dotaz je monotónny alebo skončí.}
+\end{frame}
+
+% Aggregation extends the relational core; ignore NULL and empty-group conventions.
+% MIN/MAX assume an available order; COUNT parity uses ordinary arithmetic.
+% SUM can aggregate the constant 1 per row, so it subsumes COUNT.
+% Source: Libkin, Expressive power of SQL,
+% https://homepages.inf.ed.ac.uk/libkin/papers/tcs-icdt01.pdf
+\begin{frame}{Databázy: agregácie a~FOL}
+  \begin{itemize}
+    \item \texttt{MIN}, \texttt{MAX}: pri dostupnom usporiadaní
+      nepridávajú nič navyše oproti FOL.
+    \item \texttt{SUM}: pridáme do logiky číselný term
+      $\sum_{x:\varphi(x)}t(x)$: súčet hodnôt $t(x)$ pre všetky
+      riadky spĺňajúce $\varphi(x)$.
+      Počet sčítancov závisí od dát, zložitá sémantika.
+    \item \texttt{COUNT}: osobitný prípad súčtu, kde $t(x)=1$;
+      s~aritmetikou vyjadrí aj paritu, ktorú obyčajná FOL nevyjadrí.
+    \item \texttt{AVG}: nič navyše oproti \texttt{SUM + COUNT}.
+  \end{itemize}
+
+  Ani s~agregáciami nemožno vyjadriť tranzitívny uzáver.
+  % Libkin, Expressive Power of SQL, Theorem 3 and the discussion in Section 8.
+  % Arithmetic is on the separate numeric sort; graph vertices are unordered.
+  % Do not generalize this bound to arbitrary order/arithmetic on vertex IDs.
+\end{frame}
+
+\section{Databázové jazyky a optimalizácia}
+% New slide, agreed language-design tradeoff.
+% Zdroje: https://www.postgresql.org/docs/current/xfunc-optimization.html
+% https://www.postgresql.org/docs/current/queries-with.html
+% https://www.postgresql.org/docs/current/plpython-trigger.html
+\begin{frame}{Prečo nepoužiť C alebo Python nad tabuľkami?}
+  \begin{itemize}
+    \item Bezpečné relačné jadro bez rekurzie a~všeobecných funkcií
+      sa nad konečnou databázou vždy vyhodnotí.
+      Pre ľubovoľný program nevieme všeobecne rozhodnúť ani to, či skončí.
+    \item C aj Python sa v~DBMS používať dajú.
+      Funkcia v \uv{neobmedzenom} jazyku použitá ako súčasť dotazu je však pre optimalizátor len čierna skrinka.
+    \item Vyjadrovaciu silu pridávame tam, kde je užitočná či nutná:
+      napr. rekurzia pre hierarchické dáta.
+    \item Zložitejšie kontroly konzistencie, ktoré sa ťažko vyjadrujú
+      v~SQL, možno napr. v~PostgreSQL napísať ako trigger functions
+      v~Pythone.
+  \end{itemize}
+  \note{Python API zostavujúce relačný plán môže zachovať výhody
+    deklaratívneho dotazovania. Rozhoduje sprístupnená štruktúra, nie názov
+    jazyka. Moderné SQL s rozšíreniami nemusí skončiť. Neprisudzovať
+    relačnej algebre rozhodnuteľnosť všetkých otázok o dotazoch.}
+\end{frame}
+
+% New slide: finite equivalence and the semidecidability reversal.
+% Zdroje: https://doi.org/10.1007/978-1-4615-9385-0_13
+% https://pmc.ncbi.nlm.nih.gov/articles/PMC7324044/
+\begin{frame}{Sú dva stromy relačnej algebry ekvivalentné?}
+  Optimalizácia je náročná už pre relačnú algebru:
+  môžeme jeden strom nahradiť iným bez zmeny výsledku?
+  \begin{itemize}
+    \item Ekvivalentné stromy vrátia rovnaký výsledok na
+      \emph{každej konečnej databáze}.
+    \item Pre plnú relačnú algebru (vrátane rozdielu) je ekvivalencia
+      \alert{nerozhodnuteľná}; nie je ani čiastočne rozhodnuteľná.
+      % Trakhtenbrotova veta.
+  \end{itemize}
+  Optimalizátor používa dokázané pravidlá prepisovania;
+  nemusí rozpoznať všetky ekvivalentné dvojice stromov.
+  \note{Klasický množinový model bez NULL a dodatočných integritných
+    obmedzení; rovnaká výstupná schéma. Plná algebra zahŕňa rozdiel.
+    Pri FOL nad všetkými štruktúrami je čiastočne rozhodnuteľná
+    ekvivalencia; nad konečnými databázami je čiastočne rozhodnuteľná
+    neekvivalencia. Tento rozdiel možno spomenúť ústne.
+    Pre konjunktívne dotazy s rovnosťami v množinovom modeli
+    je ekvivalencia rozhodnuteľná.}
+\end{frame}
+
+% New slide. Illustration of interacting choices, not a reduction.
+\begin{frame}{Optimalizácia pri pevnom strome}
+  Jednoduchšia úloha: zafixujeme strom v relačnej algebre, všetky joiny rátame ako \alert{merge join},
+  vyberáme si iba poradie atribútov, podľa ktorého sa relácie pri výpočte joinu usporiadajú (zhoda sa posudzuje na celej $n$-tici spoločných atribútov):
+  \begin{center}
+  \begin{tikzpicture}[x=1cm,y=1cm,
+    every node/.style={font=\small},
+    edge/.style={draw,->}]
+    \node (top) at (0,1.7) {join na $b$};
+    \node (left) at (-2.5,.85) {join na $(a,b)$};
+    \node (right) at (2.5,.85) {join na $(b,c)$};
+    \node (r) at (-3.5,0) {$R$};
+    \node (s) at (-1.5,0) {$S$};
+    \node (t) at (1.5,0) {$T$};
+    \node (u) at (3.5,0) {$U$};
+    \path[edge] (r)--(left);
+    \path[edge] (s)--(left);
+    \path[edge] (t)--(right);
+    \path[edge] (u)--(right);
+    \path[edge] (left)--(top);
+    \path[edge] (right)--(top);
+  \end{tikzpicture}
+  \end{center}
+  \begin{itemize}
+    \item Naľavo $(b,a)$ zaručí zoradenie podľa~$b$ aj pre horný join;
+      $(a,b)$ túto záruku nedáva.
+    \item Napravo analogicky: $(b,c)$, nie $(c,b)$.
+      Existujúci index môže zvýhodniť poradie nevhodné pre horný join.
+  \end{itemize}
+  Aj výber zoradení pre pevný strom merge joinov je vo všeobecnosti
+  \alert{NP-ťažký}. Úloha je však rozhodnuteľná.
+
+  %  {\scriptsize \href{https://arxiv.org/abs/cs/0611094}{Guravannavar a~kol. (2006)}, oddiel~4.1.}
+  % \note{Strom určuje závislosti, nie časový rozvrh nezávislých vetiev.
+  %   Veta 4.1 dokazuje NP-ťažkosť zjednodušeného modelu: vyberáme permutácie
+  %   stĺpcov v rastúcom strome a maximalizujeme súčet dĺžok spoločných
+  %   prefixov na hranách. Nejde o tvrdenie, že tento malý príklad je ťažký,
+  %   ani že každé prideľovanie operátorov pevnému stromu je NP-ťažké.
+  %   Konečné efektívne ohodnotiteľné množiny kandidátov možno prehľadať:
+  %   NP-ťažké nie je nerozhodnuteľné. Menšie prípady možno riešiť presne;
+  %   všeobecnú polynomiálnu metódu by vylúčilo P != NP.
+  %   Odhadovaná cena nie je zaručený skutočný čas.}
+\end{frame}
+
+% Copied from Logika 2, p1.pdf p.32, frame Logika 2. radu.
+% Omit reading assignment; qualify full second-order semantics.
+\begin{frame}{Logika 2. rádu}
+  Syntax a~sémantiku logiky 1.~rádu možno rozšíriť o premenné pre predikáty, ktoré je dovolené kvantifikovať.
+  Dostaneme tak logiku 2.~rádu (SO).\\[3mm]
+
+  Ak sa pri kvantifikovaní predikátov obmedzíme na predikáty arity 1, dostaneme monadickú logiku 2. rádu (MSO).
+  Takéto predikáty de facto zodpovedajú množinám prvkov domény, čiže v MSO možno vyjadriť bežné veci z teórie grafov apod.\\[3mm]
+
+  Pri plnej sémantike:
+  \alert{Použitie formúl 2.~rádu zvyšuje vyjadrovaciu silu jazyka, ale oproti FOL stratíme kompaktnosť a~úplnosť}.
+\end{frame}
+
+% Adapted from Logika 1, pr12.pdf p.24, 3-descriptive.tex.
+% Fagin: https://kenclarkson.org/RonFaginPaper/genspec.pdf
+% Immerman-Vardi: https://people.cs.umass.edu/~immerman/descriptiveComplexity.html
+\begin{frame}{Deskriptívna zložitosť}
+  Pri klasickom pohľade na zložitosť algoritmov skúmame
+  počet krokov v~závislosti od veľkosti vstupu.
+
+  Alternatívny pohľad: akú zložitú logickú formulu potrebujeme
+  na popis daného problému?
+
+  Príklady rôzne zložitých formúl:
+  \begin{itemize}
+    \item existential SOL:\quad
+      $\E{X_1}\cdots\E{X_n}\ F$, kde $F$ je formula FOL
+    \item universal SOL:\quad
+      $\A{X_1}\cdots\A{X_n}\ F$, kde $F$ je formula FOL
+  \end{itemize}
+  \alert{Formula je pevná, vstupom sú dáta (napr. graf).}
+\end{frame}
+
+% Copied from Logika 1, pr12.pdf p.25, 3-descriptive.tex.
+% Add the fixed-formula qualification to the original complexity bound.
+\begin{frame}{Deskriptívna zložitosť}
+  Existencia trojuholníka v~grafe sa dá vyjadriť vo FOL:
+  \begin{align*}
+    &\E x\E y\E z\ \big(V(x)\land V(y)\land V(z)\land {}\\
+    &\qquad{}\land x\not\doteq y\land y\not\doteq z\land z\not\doteq x
+      \land E(x,y)\land E(y,z)\land E(z,x)\big)
+  \end{align*}
+
+  Predikát $V$~popisuje vrcholy, $E$~hrany.
+  Formulu vyhodnocujeme na konkrétnom grafe,
+  neoverujeme jej všeobecnú platnosť.
+
+  Pre $k$~kvantifikátorov vo formule preveríme $O(|V|^k)$ možností.
+  \alert{Formula je pevná, rastie graf.}
+  Preto tento problém patrí do triedy~P.
+\end{frame}
+
+% Copied from Logika 1, pr12.pdf p.26, 3-descriptive.tex.
+% Schematic formula: the ellipsis omits the other colours and the partition condition.
+\begin{frame}{Deskriptívna zložitosť}
+  Existencia 3-farbenia grafu: NP-úplný;\\
+  nevyjadriteľné vo FOL, vyjadriteľné v existential SOL:
+  \[
+    \E R\E G\E B
+    \bigl(\A x\A y\ (E(x,y)\limpl\lnot R(x)\lor\lnot R(y))\land\dotsb\bigr)
+  \]
+  ($R$, $G$, $B$ sú predikáty vyjadrujúce jednotlivé farby).\\
+
+  Za doménu zoberieme vrcholy grafu.
+  Množiny farieb nedeterministicky uhádneme;
+  vyhodnotenie pevnej prvorádovej časti už trvá polynomiálny čas.
+  Preto tento problém patrí do triedy NP.
+\end{frame}
+
+% Copied from Logika 1, pr12.pdf p.27, 3-descriptive.tex.
+% Built-in order/arithmetic is needed for the uniform AC^0 characterization.
+% Do not assert PH is strictly contained in PSPACE: that separation is open.
+% The SO fixed-point operator is of higher order than the FO fixed-point operator.
+% Sources: https://people.cs.umass.edu/~immerman/descriptiveComplexity.html
+% https://cgi.cse.unsw.edu.au/~eptcs/paper.cgi?FICS2024.7.pdf=
+\begin{frame}{Deskriptívna zložitosť}
+  Konečné usporiadané vstupy; formula je pevná, rastú dáta.
+  \begin{itemize}
+    \item FOL s~aritmetikou na pozíciách: trieda zložitosti AC$^0$
+      (vlastná podmnožina LOGSPACE)
+    \item FOL + tranzitívny uzáver: non-deterministic LOGSPACE
+    \item FOL + least fixed point operator: P
+  \end{itemize}
+  \begin{itemize}
+    \item existential SOL: NP
+    \item universal SOL: co-NP
+    \item SOL: PH (obsahuje NP aj coNP)
+    \item SOL + least fixed point operator: EXPTIME
+  \end{itemize}
+  V~poslednom riadku ide o~pevný bod vyššieho rádu.
+\end{frame}
+
+\section{Lean a správnosť špecifikácie}
+% Source: Logika 1, pr12.pdf pp. 48-51, 55-59.
+% Reused from 12-advanced/6-lean.tex and lean_code/; #print and
+% standalone specification slide omitted by agreement.
+
+\begin{frame}{Lean: jazyk a interaktívny dokazovací systém}
+Lean je dôkazový asistent založený na teórii typov.
+\begin{itemize}
+    \item Na dokázanie formuly treba skonštruovať term zodpovedajúceho typu.
+    \item Lean vie verifikovať existujúce dôkazy (termy).
+    \item Lean tiež ponúka tzv. \uv{taktiky}, ktoré pomáhajú automatizovať konštrukciu dôkazu
+      (napr. mu možno dať pokyn \uv{sprav rozbor prípadov}, \uv{nejako skús použiť túto lemu},
+      \uv{aplikuj pravidlá násobenia v poli}).
+    \item \texttt{mathlib} je rastúca knižnica formálne verifikovaných matematických tvrdení.
+\end{itemize}
+\end{frame}
+
+\begin{frame}[fragile]{Lean: dôkaz priamou konštrukciou termu}
+$A,B,C$ sú tvrdenia. Dôkaz tvrdenia~$A$ je v~Leane hodnota typu~$A$.
+\begin{lstlisting}[language=Lean,basicstyle=\footnotesize\ttfamily]
+-- Direct proof term
+theorem my_term (A B C : Prop) :
+    (A ∧ C) → (B → A) :=
+  fun h_ac : A ∧ C =>
+    fun h_b : B =>
+      h_ac.left
+\end{lstlisting}
+Funkcia dostane dôkaz $A\land C$, potom dôkaz~$B$
+a~vráti dôkaz~$A$. Tým dokazuje celú implikáciu.
+\end{frame}
+
+\begin{frame}[fragile]{Lean: dôkaz pomocou taktík}
+Ten istý dôkazový term môžeme zostrojiť pomocou taktík:
+\begin{lstlisting}[language=Lean,basicstyle=\footnotesize\ttfamily]
+theorem my_tactic_proof (A B C : Prop) :
+    (A ∧ C) → (B → A) := by
+  intro h_ac
+  obtain ⟨h_a, h_c⟩ := h_ac
+  intro h_b
+  exact h_a
+\end{lstlisting}
+{\small Výroky ako typy, dôkazy ako termy: Curryho-Howardova korešpondencia.}
+\end{frame}
+
+
+
+% Source: Logika 1, pr12.pdf p. 55; copied with the original sorry holes.
+\begin{frame}[fragile]{Lean: kód s~dôkazom správnosti}
+Lean je aj funkcionálny programovací jazyk.
+
+\medskip
+\textbf{Úloha:} napísať funkciu pre maximum z~neprázdneho zoznamu
+a~dokázať, že výsledok patrí do zoznamu a~je najväčší.
+
+\medskip
+\textbf{Možnosť 1:} návratový typ obsahuje výsledok aj dôkaz správnosti.
+\begin{lstlisting}[language=Lean,basicstyle=\scriptsize\ttfamily]
+def find_max : (L : List ℕ) → L ≠ [] →
+        { x // x ∈ L ∧ ∀ y ∈ L, y ≤ x }
+  | [], h => by contradiction
+  | [a], _ => ⟨a, by sorry⟩
+  | a :: b :: tail, _ =>
+      let ⟨m, ⟨hm_mem, hm_max⟩⟩ := find_max (b :: tail) (by simp)
+
+      if h : m ≤ a then ⟨a, by sorry⟩
+      else ⟨m, by sorry⟩
+\end{lstlisting}
+{\small Dôkazové časti sú vynechané (\texttt{sorry}).}
+\end{frame}
+
+\begin{frame}[fragile]{Lean: samostatný dôkaz správnosti}
+\textbf{Možnosť 2:} funkcia vracia bežnú hodnotu a~jej správnosť
+vyjadríme samostatnou vetou.
+
+Veta požaduje, aby výsledok patril do zoznamu a~bol najväčší.
+\begin{lstlisting}[language=Lean,basicstyle=\scriptsize\ttfamily]
+def find_max : (L : List ℕ) → L ≠ [] → ℕ := sorry
+
+theorem find_max_correct : (L : List ℕ) → (h : L ≠ []) →
+  find_max L h ∈ L ∧ ∀ y ∈ L, y ≤ find_max L h := by sorry
+\end{lstlisting}
+{\small Náčrt deklarácií; implementácia a~dôkaz sú vynechané.}
+\end{frame}
+
+% Logika 1, pr12.pdf pp.58-59: original theorem declarations.
+\begin{frame}[fragile]{Lean: dokázateľne správny kód}
+  Čo presne znamená \alert{rozdeliť zoznam na párne a nepárne prvky}?
+  Zachytávajú tieto podmienky všetko, čo od programu chceme?
+  {\small Ukážka špecifikácie; dôkazy sú vynechané.}
+\begin{lstlisting}[language=Lean,basicstyle=\scriptsize\ttfamily]
+theorem split_parity_length (xs : List Nat) :
+  (split_parity xs).1.length + (split_parity xs).2.length = xs.length := by sorry
+
+theorem split_parity_all_even (xs : List Nat) :
+  ∀ x ∈ (split_parity xs).1, Even x := by sorry
+
+theorem split_parity_all_odd (xs : List Nat) :
+  ∀ x ∈ (split_parity xs).2, Odd x := by sorry
+
+theorem split_parity_mem (xs : List Nat) (x : Nat) :
+  x ∈ xs ↔ x ∈ (split_parity xs).1 ∨ x ∈ (split_parity xs).2 := by sorry
+\end{lstlisting}
+\end{frame}
+
+\begin{frame}{Dôkaz je len taký dobrý ako špecifikácia}
+Chýba zachovanie násobností. Požiadavky na dĺžku, paritu a~členstvo dovoľujú
+\[
+  [2,4,4] \longmapsto ([2,2,4],[]).
+\]
+\begin{itemize}
+    \item Súčet dĺžok výstupných zoznamov je tri.
+    \item Prvý výstup obsahuje iba párne čísla a druhý iba nepárne.
+    \item Vstup a výstup obsahujú tie isté rôzne hodnoty, ale nie tie isté násobnosti.
+\end{itemize}
+\end{frame}
+
+\begin{frame}[fragile]{Dôkaz je len taký dobrý ako špecifikácia}
+Chýba stabilita: aj keď zachováme násobnosti, slabá špecifikácia povoľuje meniť poradie.
+
+Popri podmienkach pre paritu a~dĺžku požadujeme:
+\begin{lstlisting}[language=Lean,basicstyle=\scriptsize\ttfamily]
+theorem split_parity_stable (xs : List Nat) :
+  (split_parity xs).1.Sublist xs ∧
+  (split_parity xs).2.Sublist xs := by sorry
+\end{lstlisting}
+Podzoznam vznikne vynechaním prvkov bez zmeny poradia.
+Spolu s~paritou a~súčtom dĺžok tým zaručíme aj správne násobnosti.
+
+\medskip
+Stabilita je veľmi dôležitá aj pri testovaní: pri nedeterministickom
+výstupe je porovnanie s~jediným očakávaným zoznamom nespoľahlivé.
+
+V~praxi môže premiešanie časovo zoradených záznamov pokaziť
+napr. výpočet zmien medzi susednými meraniami.
+\end{frame}
+
+
+
+\section{Solvery}
+% From logic algorithms to practical, independently checkable computation.
+% Davis, Logemann, Loveland (1962); Chaff (2001):
+% https://www.princeton.edu/~chaff/publication/DAC2001v56.pdf
+% Conflict-driven clause learning: https://www.princeton.edu/~chaff/publication/iccad2001_final.pdf
+% Zelkova uses a solver portfolio including Z3; the daily invocation count
+% applies to Zelkova, not to Z3 alone and not only to S3.
+% https://assets.amazon.science/56/3c/7d75bca84c56b9b1ed1999beec0c/semantic-based-automated-reasoning-for-aws-access-policies-using-smt.pdf
+% https://www.microsoft.com/en-us/research/project/z3-3/
+% Certificate verification in Lean:
+% https://lean-lang.org/doc/api/Lean/Elab/Tactic/BVDecide.html
+\begin{frame}{Logické solvery v~praxi}
+  \begin{itemize}
+    \item Logické solvery sa stali jednými z~najrýchlejších nástrojov
+      na mnohé praktické aj matematické problémy.
+    \item Základ algoritmov pre SAT poznáme od~60.~rokov;
+      praktický prelom prišiel okolo~2000. CDCL (Conflict-Driven Clause Learning) sa pri backtrackingu
+      učí z~konfliktov nové klauzuly a~v~prehľadávanom priestore odrezáva celé podstromy.
+    \item Amazon používa Z3 od Microsoftu pri kontrole prístupu
+      k~S3 (cloudové úložisko). Ide o~SMT solver, ktorého princíp si o~chvíľu vysvetlíme.
+    \item Výsledkom môže byť overiteľný certifikát: ohodnotenie (SAT)
+      alebo dôkaz nesplniteľnosti (UNSAT).
+    \item Certifikáty využijeme v~Leane pri overovaní kódu a~výpočtov,
+      v~priemysle aj matematickom výskume.
+  \end{itemize}
+\end{frame}
+
+% Reused and lightly edited from Logika 1, pr06.pdf.
+
+% Original: Logika 1, pr06.pdf, p. 6, "Problém SAT".
+\begin{frame}{Problém SAT}
+  \begin{itemize}
+    \item \alert{Má boolovská formula ohodnotenie, v ktorom je splnená?}
+    \item Pre danú boolovskú formulu hľadáme priradenie hodnôt
+      pravda/nepravda jej premenným, pri ktorom je formula pravdivá.
+      Existuje také priradenie?
+    \item Vstupom býva formula v~CNF: konjunkcia klauzúl,
+      ktorú už poznáme z~rezolvencie.
+    \item SAT solver nájde vyhovujúce priradenie alebo rozhodne,
+      že žiadne neexistuje.
+    \item \emph{Predspracovanie:} rezolvenčná eliminácia znižuje
+      počet premenných aj za cenu väčších klauzúl,
+      čo môže urýchliť následné hľadanie.
+    \item Hoci je SAT NP-úplný problém, solvery sú prekvapujúco rýchle, neraz aj pre tisíce či milióny premenných.
+  \end{itemize}
+\end{frame}
+
+% Original: Logika 1, pr06.pdf p.8, plus graph applications from p.95.
+% Practical strength across domains is the main point, not solver internals.
+\begin{frame}{Praktické využitie SAT solverov}
+  \begin{itemize}
+    \item Verifikácia hardvéru: existuje vstup, na ktorom sa obvod
+      pred optimalizáciou a~po nej správa odlišne?
+    \item Softvérové balíky: existuje kompatibilný výber verzií?
+    \item Existuje farbenie grafu najviac $k$~farbami?
+    \item Existuje v~grafe hamiltonovská kružnica?
+  \end{itemize}
+  Každý problém najprv preložíme na boolovskú formulu.
+  Do SAT možno zakódovať prakticky ľubovoľnú konečnú kombinatorickú úlohu;
+  veľkosť prekladu však nemusí byť polynomiálna
+  (pri bežných kombinatorických úlohách však je).
+\end{frame}
+
+
+
+% Original: Logika 1, pr06.pdf, p. 109, "Čo je SMT solver?".
+\begin{frame}{Čo je SMT solver?}
+  \alert{SMT} (Satisfiability Modulo Theories) kombinuje logické spojky
+  s~podmienkami zo zvolených teórií, napr. aritmetiky.
+
+  Pre $x,y\in\mathbb Z$ hľadáme riešenie:
+  \[
+    (x=0\lor y=0)\land x+y=5\land x>y.
+  \]
+
+  \begin{itemize}
+    \item Podporované teórie: lineárna aritmetika nad celými
+      a~reálnymi číslami, funkcie bez určenej interpretácie,
+      polia, bitové vektory.
+    \item Úplné rozhodovanie sa týka vybraných teórií a~fragmentov,
+      nie ľubovoľnej matematiky.
+  \end{itemize}
+\end{frame}
+
+
+
+% SAT/theory cooperation: de Moura and Bjorner, Tractability and Modern
+% Satisfiability Modulo Theories Solvers, section 1.1.
+% https://www.microsoft.com/en-us/research/wp-content/uploads/2016/02/nbjorner-tractability.pdf
+\begin{frame}{Ako pracuje SMT solver?}
+  \begin{itemize}
+    \item Základom je SAT solver, ale atómami môžu byť aj matematické
+      tvrdenia, napr. $x+y=5$ alebo $x>y$.
+      SAT časť ich význam nepozná; berie ich ako boolovské premenné.
+    \item SAT solver navrhuje, ktoré atómy majú byť pravdivé
+      a~ktoré nepravdivé, aby vyhovel logickým spojkám.
+    \item Špecializované moduly pre jednotlivé teórie priebežne kontrolujú,
+      či sú tieto voľby zlučiteľné s~doterajšími podmienkami
+      v~príslušnej teórii.
+    \item Napr. modul pre lineárnu aritmetiku odhalí spor
+      v nerovnostiach a~oznámi ho SAT solveru.
+      Ten sa z~konfliktu poučí a~hľadá iné ohodnotenie.
+  \end{itemize}
+\end{frame}
+
+
+\section{Verná formalizácia}
+\begin{frame}{Dokázali sme zamýšľané tvrdenie?}
+Pri počítačovom dokazovaní aj databázových dotazoch je kľúčová
+\alert{formalizácia zadania z~prirodzeného jazyka}.
+Môže ju vytvoriť človek alebo LLM.
+
+\begin{itemize}
+  \item Algoritmické strojové overenie či výpočet
+    \alert{nezaručí, že zápis vystihuje pôvodné zadanie.}
+  \item \uv{Nech $n$ je prvý krok, v~ktorom sa program $P$ zastaví.}
+    Tento zápis predpokladá, že taký krok existuje.
+  \item Overiť tento skrytý predpoklad znamená vyriešiť
+    problém zastavenia.
+\end{itemize}
+
+\alert{Už overenie vernosti formalizácie môže byť nerozhodnuteľné,
+dokonca ťažšie než problém zastavenia.}
+% TODO make more precise
+V~princípe k~ľubovoľne ťažkému výpočtovému problému tak existuje aspoň tak ťažký formalizačný problém.
+Ani Lean, ani LLM nás od toho nezachránia.
+
+\vfill
+{\tiny Bastounis, Circelli, Hansen (2026),
+\href{https://arxiv.org/abs/2610.08144}{Navier-Stokes lost in translation}.}
+\note{Príklad sa týka skrytých existenčných predpokladov a vernosti prekladu.
+  Samotný zápis symbolickej či nekonštruktívnej definície nevyžaduje výpočet
+  jej hodnoty. Pridanie predpokladu alebo predvolenej hodnoty môže zmeniť
+  pôvodné zadanie. Článok ukazuje neobmedzenú výšku v aritmetickej/SCI
+  hierarchii; túto hierarchiu tu nedefinujeme.}
+\end{frame}
+
+
+\end{document}

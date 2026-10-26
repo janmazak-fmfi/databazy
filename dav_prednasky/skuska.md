@@ -2,7 +2,7 @@
 
 Tieto témy zodpovedajú štátnicovým požiadavkám (až na transakcie; tie prvé tri okruhy sú dôležitejšie, ako vidno aj z príkladov otázok nižšie).
 
-1. Jazyk SQL --- dotazy, join, antijoin, vyjadrenie negácie a všeobecného kvantifikátora, agregácia, CTE, rekurzia, DDL, DML.
+1. Jazyk SQL --- dotazy, join, antijoin, vyjadrenie negácie a všeobecného kvantifikátora, agregácia, CTE, rekurzia, DDL, DML. (Window functions na skúške nebudú.)
 2. Výpočet dotazov v relačnom modeli --- relačná algebra, fyzické operátory (podrobne merge sort a hash join), plán výpočtu dotazu, základné princípy optimalizácie výpočtu dotazu (rozdiely oproti bežnej algoritmickej zložitosti), indexy (B-tree, hash index).
 3. Teória navrhovania a normálne formy --- atribúty, funkčné závislosti, uzáver a pokrytie množiny funkčných závislostí, kľúče a nadkľúče, 3NF, BCNF, bezstratovosť dekompozície a zachovanie funkčných závislostí, redundancia a súvisiace anomálie (pri vkladaní, mazaní či zmene dát), entitno-relačný model.
 4. Transakcie --- ACID, rozvrhy, úrovne sériovateľnosti, obnoviteľnosť (dirty read/write, kaskádový abort, algoritmus obnovy), dvojfázové zamykanie, generovanie striktných rozvrhov a riešenie deadlocku.
@@ -81,6 +81,8 @@ platia dve netriviálne funkčné závislosti:
 Nájdite všetky kľúče, dekomponujte R vhodným spôsobom do BCNF a zdôvodnite správnosť svojho postupu. Stručne vysvetlite pojmy FZ, zachovanie FZ pri dekompozícii, bezstratová dekompozícia, normálna forma. Prečo reláciu R normalizujeme?
 
 ---
+
+Uvažujme tabuľky `student(id_student, name)` a `exam(id_student, course)`.
 
 Prepíšte dotaz
 

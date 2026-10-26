@@ -1,0 +1,1011 @@
+\PassOptionsToPackage{dvipsnames}{xcolor}
+
+\documentclass[12pt]{beamer}
+\usetheme{default}
+\usecolortheme{crane}
+
+\usepackage[T1]{fontenc}
+\usepackage[slovak]{babel}
+
+\usepackage{amsmath}
+\usepackage{amsmath, amssymb}
+\usepackage{hyperref, url}
+\usepackage{graphicx}
+\usepackage{array}
+\usepackage{alltt}
+\usepackage{tikz}
+\usetikzlibrary{calc}
+
+%\setbeamersize{text margin left=1pt,text margin right=1pt}
+\setbeamertemplate{footline}[frame number]
+\beamertemplatenavigationsymbolsempty
+
+% https://www.overleaf.com/learn/latex/Using_colours_in_LaTeX
+\def\blue#1{\textcolor{Cerulean}{#1}}
+\def\green#1{\textcolor{LimeGreen}{#1}}
+
+% database-related stuff
+\DeclareMathOperator{\join}{\bowtie}
+\DeclareMathOperator{\antijoin}{\rhd}
+
+\DeclareMathOperator{\lubi}{lubi}
+\DeclareMathOperator{\capuje}{capuje}
+\DeclareMathOperator{\navstivil}{navstivil}
+\DeclareMathOperator{\vypil}{vypil}
+\DeclareMathOperator{\answer}{answer}
+
+\title{Fyzická organizácia dát a optimalizácia dotazov}
+\author{Ján Mazák}
+\institute{FMFI UK Bratislava}
+\date{}
+
+
+\begin{document}
+
+\frame{\titlepage}
+
+\begin{frame}[fragile]{Logická organizácia dát}
+Dáta v relačnom modeli:
+\begin{itemize}
+\item hodnoty jednotlivých atribútov sú zoskupené do záznamov
+\item záznamy tvoria reláciu
+\item záznamy môžu mať fixnú alebo variabilnú dĺžku
+\end{itemize}
+\vspace*{3mm}
+Ako toto fyzicky reprezentovať na disku?
+\end{frame}
+
+\begin{frame}[fragile]{Fyzická organizácia dát}
+Neusporiadané záznamy v spájanom zozname:
+\begin{itemize}
+\item v každom diskovom bloku niekoľko záznamov a pointer na ďalší blok
+\item sekvenčné vyhľadávanie; trvá $O(n)$, čiže dlho
+\item vkladanie sa dá urýchliť, ak osobitne evidujeme plné bloky a bloky s prázdnym miestom, v ideálnom prípade je to $O(1)$
+\item mazanie záznamov môže spôsobiť fragmentáciu a predĺžiť vyhľadávanie neúmerne množstvu uložených dát
+\end{itemize}
+\end{frame}
+
+\begin{frame}[fragile]{Fyzická organizácia dát}
+Usporiadané záznamy v spájanom zozname:
+\begin{itemize}
+\item záznamy usporiadané podľa nejakého kľúča, v každom diskovom bloku niekoľko záznamov a pointer na ďalší blok
+\item binárne vyhľadávanie sotva použiteľné, keďže bloky s dátami nie sú na disku uložené súvisle
+\item vkladanie v najhoršom prípade $O(n)$, lebo treba spraviť miesto na nový záznam odsunutím existujúcich
+\item ak evidujeme osobitne usporiadané kľúče s odkazmi na blok, ktorý záznamy s danou hodnotou kľúča obsahuje, zrýchlime vyhľadávanie --- indexovanie záznamov
+\end{itemize}
+\end{frame}
+
+\begin{frame}[fragile]{Index}
+Výhody clustered indexu: rýchlejší prístup k okolitým záznamom, napr. ak hľadáme dáta z daného intervalu.
+Údržba indexu (odstraňovanie \uv{unclusterizácie}) však niečo stojí.
+\begin{center}
+\begin{tikzpicture}[scale=0.58,
+  ent/.style={draw,fill=blue!10,minimum width=1.0cm,minimum height=0.5cm,font=\scriptsize},
+  rec/.style={draw,fill=green!10,minimum width=0.8cm,minimum height=0.6cm,font=\scriptsize}]
+  % clustered (left)
+  \draw[thick] (-3.2,2.0) -- (0,3.4) -- (3.2,2.0) -- cycle;
+  \node[font=\scriptsize] at (0,2.6) {index};
+  \node[ent] (a1) at (-2.3,0.9) {};
+  \node[ent] (a2) at (0,0.9) {};
+  \node[ent] (a3) at (2.3,0.9) {};
+  \foreach \x/\n in {-2.3/a1,0/a2,2.3/a3} { \draw[thin] (\x,2.0) -- (\n.north); }
+  \foreach \i in {1,...,7} { \node[rec] (L\i) at (-4+\i,-1.2) {}; }
+  \draw[->] (a1.south) -- (L1.north); \draw[->] (a1.south) -- (L2.north);
+  \draw[->] (a2.south) -- (L3.north); \draw[->] (a2.south) -- (L4.north);
+  \draw[->] (a3.south) -- (L5.north); \draw[->] (a3.south) -- (L6.north); \draw[->] (a3.south) -- (L7.north);
+  \node[anchor=east,font=\scriptsize] at (-3.6,0.9) {index entries};
+  \node[anchor=east,font=\scriptsize] at (-3.6,-1.2) {data records};
+  % unclustered (right)
+  \draw[thick] (4.8,2.0) -- (8,3.4) -- (11.2,2.0) -- cycle;
+  \node[font=\scriptsize] at (8,2.6) {index};
+  \node[ent] (b1) at (5.7,0.9) {};
+  \node[ent] (b2) at (8,0.9) {};
+  \node[ent] (b3) at (10.3,0.9) {};
+  \foreach \x/\n in {5.7/b1,8/b2,10.3/b3} { \draw[thin] (\x,2.0) -- (\n.north); }
+  \foreach \i in {1,...,7} { \node[rec] (R\i) at (4+\i,-1.2) {}; }
+  \draw[->] (b1.south) -- (R1.north); \draw[->] (b1.south) -- (R5.north);
+  \draw[->] (b2.south) -- (R3.north); \draw[->] (b2.south) -- (R6.north);
+  \draw[->] (b3.south) -- (R2.north); \draw[->] (b3.south) -- (R7.north);
+  \node[font=\small\bfseries] at (0,-2.4) {clustered};
+  \node[font=\small\bfseries] at (8,-2.4) {unclustered};
+\end{tikzpicture}
+\end{center}
+\end{frame}
+
+\begin{frame}[fragile]{B+ strom}
+B+ strom: vyvážený strom vhodný pre uloženie na disku.
+\begin{itemize}
+\item záznamy (resp. odkazy na ne) sú uložené v listoch
+\item parametrizovaný hodnotou $m$ tak, aby stupeň vetvenia bol medzi $m/2$ a $m$
+\item voľba $m$ podľa veľkosti bloku (rádovo stovky)
+\item malá výška stromu, zhruba $\log_m (n)$
+\item minimalizujeme počet blokov, čo treba načítať pri prístupe k listu
+\item vyhľadávanie, vkladanie, mazanie $O(\log_m (n))$
+\end{itemize}
+\end{frame}
+
+\begin{frame}[fragile]{B+ strom}
+\begin{center}
+\begin{tikzpicture}[scale=0.45,
+ nd/.style={draw,fill=green!10,minimum height=0.6cm,font=\footnotesize,inner sep=2pt},
+ leaf/.style={draw,fill=green!10,minimum width=1.4cm,minimum height=0.6cm,font=\scriptsize,inner sep=1pt}]
+  \node[nd] (root) at (1.45,5.2) {07};
+  \node[nd,minimum width=2.0cm] (A) at (-5.0,2.9) {03\ \ 05};
+  \node[nd,minimum width=1.2cm] (B) at (7.9,2.9) {09};
+  \node[leaf] (L1) at (-10.0,0) {01\ 02};
+  \node[leaf] (L2) at (-5.0,0) {03\ 04};
+  \node[leaf] (L3) at (0.0,0) {05\ 06};
+  \node[leaf] (L4) at (5.0,0) {07\ 08};
+  \node[leaf,minimum width=2.0cm] (L5) at (10.8,0) {09\ 10\ 11};
+  \draw[->,thin] (root.south west) -- (A.north east);
+  \draw[->,thin] (root.south east) -- (B.north west);
+  \draw[->,thin] (A.south west) -- (L1.north);
+  \draw[->,thin] (A.south) -- (L2.north);
+  \draw[->,thin] (A.south east) -- (L3.north);
+  \draw[->,thin] (B.south west) -- (L4.north);
+  \draw[->,thin] (B.south east) -- (L5.north);
+  \draw[->,thin] ($(L1.south east)+(-0.3,0)$) to[bend right=35] ($(L2.south west)+(0.3,0)$);
+  \draw[->,thin] ($(L2.south east)+(-0.3,0)$) to[bend right=35] ($(L3.south west)+(0.3,0)$);
+  \draw[->,thin] ($(L3.south east)+(-0.3,0)$) to[bend right=35] ($(L4.south west)+(0.3,0)$);
+  \draw[->,thin] ($(L4.south east)+(-0.3,0)$) to[bend right=35] ($(L5.south west)+(0.3,0)$);
+\end{tikzpicture}
+\end{center}
+Vyskúšajte si:\\ {\scriptsize\url{https://www.cs.usfca.edu/~galles/visualization/BPlusTree.html}}
+\end{frame}
+
+\begin{frame}[fragile]{Index}
+B+ strom by mohol obsahovať hodnoty priamo v nelistových uzloch (B strom).
+Neefektívne: pri traverzovaní stromu zbytočne čítame dáta, ktoré nás nezaujímajú.
+\bigskip
+
+Ak sú v listoch len referencie, ako uložiť záznamy do blokov?
+\bigskip
+
+\begin{itemize}
+\item \alert{PostgreSQL}: záznamy sú uložené bez udržiavaného usporiadania podľa kľúča; nový riadok môže použiť voľné miesto v existujúcom bloku (správu voľného miesta rieši databáza). Príkaz \texttt{CLUSTER tabulka USING index} tabuľku raz prepíše podľa indexu; pri ďalších zmenách sa toto poradie postupne rozpadá.
+\item \alert{SQLite}: tabuľka je B+ strom zoradený podľa rowid (pri \texttt{INTEGER PRIMARY KEY} je to ten kľúč). Listy obsahujú celé riadky, takže samotná tabuľka je clustered index. Ďalší index obsahuje hodnotu a rowid, riadok nájde až cez strom tabuľky.
+\end{itemize}
+\end{frame}
+
+\begin{frame}{VACUUM --- PostgreSQL}
+\begin{itemize}
+\item \texttt{UPDATE} a \texttt{DELETE} nechávajú staré verzie riadkov (kvôli MVCC); \texttt{VACUUM} ich odstráni a miesto označí na opätovné použitie.
+\item Bežný \texttt{VACUUM} súbor tabuľky zvyčajne nezmenší, nebráni čítaniu ani zápisu.
+\item \texttt{VACUUM FULL} tabuľku prepíše a miesto vráti operačnému systému; počas behu však blokuje aj čítanie tabuľky.
+\item Riadky neusporadúva (na to slúži \texttt{CLUSTER}).
+\item Spúšťa sa aj automaticky (autovacuum).
+\item Z naivného sledovania diskového priestoru nemožno robiť závery o činnosti DBMS.\\
+{\footnotesize Pokus: 20 000 riadkov (4,7 MB), zmazanie polovice a 1 000 nových riadkov: 4,9 MB; \texttt{VACUUM}: 4,9 MB; \texttt{VACUUM FULL}: 2,6 MB.}
+\end{itemize}
+\end{frame}
+
+\begin{frame}{VACUUM --- SQLite}
+\begin{itemize}
+\item \texttt{DELETE} uvoľní prázdne bloky do zoznamu voľných; ďalšie vkladanie ich použije. Súbor sa nezmenší.
+\item \texttt{VACUUM} prekopíruje databázu do nového súboru, odstráni voľné bloky a zmenší fragmentáciu.
+\item \texttt{VACUUM} vyžaduje dočasne ďalšie miesto (až dvojnásobok) a počas svojej činnosti zamkne databázu.
+\item Pozor: v tabuľkách bez \texttt{INTEGER PRIMARY KEY} sa môžu zmeniť rowid.
+\end{itemize}
+\end{frame}
+
+\begin{frame}[fragile]{Hashovanie}
+Aj hashovanie možno použiť na vytvorenie indexu.
+\bigskip
+
+Pri dobrej hashovacej funkcii možno očakávať vyhľadávanie v konštantnom čase,
+ak index nie je \emph{preplnený} --- ak je záznamov priveľa, v každom hashovacom buckete
+je pridlhý spájaný zoznam. Vtedy možno buckety rozdeliť použitím dodatočnej hashovacej funkcie.
+Existujú tiež spôsoby hashovania, ktoré priebežne pridávajú buckety.
+\bigskip
+
+Nevýhoda: len podmienka s rovnosťou, nie nerovnosť či intervaly.
+\end{frame}
+
+\begin{frame}[fragile]{Hashovanie}
+Hashovanie možno použiť na horizontálne škálovanie.
+\bigskip
+
+Jednotlivé hash buckety môžeme skladovať na osobitných serveroch.
+Vyhľadávanie podľa kľúča aj join s podmienkou na rovnosť tak možno naďalej počítať efektívne.
+\bigskip
+
+Pri odobraní alebo pridaní servera však máme problém. Riešenie:
+\blue{\href{https://medium.datadriveninvestor.com/consistent-hashing-an-efficient-scalable-data-distribution-algorithm-a81fc5c0a6c7}{\emph{consistent hashing}}}.
+(Po kliknutí na link sa dozviete viac, neočakáva sa však, že to budete vedieť v rámci tohto predmetu. Využité napr. v DynamoDB a Cassandra.)
+
+\bigskip
+Ďalší problém je \emph{workload skew} --- ak majú hodnoty hashovaného atribútu nerovnomernú distribúciu (napr. polovica záznamov rovnakú),
+nepomôže ani dobrá hashovacia funkcia. Riešenie:
+\href{https://scalablehuman.com/2022/06/05/how-to-relieve-hotspots-with-skewed-workloads/}{link}.
+\end{frame}
+
+
+\begin{frame}[fragile]{Vytvorenie indexu}
+Hash index na vyhľadávanie podľa emp\_id:
+\begin{alltt}
+  \blue{CREATE INDEX ON employee USING HASH (emp_id);}
+\end{alltt}
+Index na zabezpečenie unikátnosti mena (B+ strom):
+\begin{alltt}
+  \blue{CREATE UNIQUE INDEX i1 ON employee (name);}
+\end{alltt}
+Index pre vypočítanú hodnotu (nie priamo atribút relácie):
+\begin{alltt}
+  \blue{CREATE INDEX ON employee (lower(name));}
+\end{alltt}
+Index obsahujúci dodatočné dáta (podľa salary nemožno vyhľadávať, iba podľa emp\_id a name):
+{\small
+\begin{alltt}
+  \blue{CREATE INDEX ON employee (emp_id, name) INCLUDE (salary);}
+\end{alltt}
+}
+\end{frame}
+
+\begin{frame}[fragile]{Fyzické operátory --- table scan}
+\begin{itemize}
+\item \alert{sequential (linear) scan} --- prejdeme priamo záznamy zaradom, ako sú uložené (efektívne pre malé relácie)
+\item \alert{index scan} --- využije sa existujúci index, neraz netreba vidieť všetky záznamy, lebo máme podmienku za WHERE
+\item \alert{index-only scan} --- k záznamom netreba vôbec pristupovať, ak nás zaujímajú len atribúty obsiahnuté v indexe
+\item \alert{bitmap index scan} vytvorí bitmapu umiestnení vyhovujúcich riadkov;
+\alert{bitmap heap scan} potom číta príslušné dátové bloky v poradí ich uloženia
+\end{itemize}
+\end{frame}
+
+% https://www.postgresql.org/docs/15/indexes-bitmap-scans.html
+% https://www.postgresql.org/docs/15/planner-stats.html
+% Lossy bitmap: https://github.com/postgres/postgres/blob/REL_15_STABLE/src/backend/nodes/tidbitmap.c
+\begin{frame}[fragile]{Bitmap scan: prečo a kedy?}
+\begin{itemize}
+\item Index môže vracať odkazy na riadky v blokoch $7,2,7,2,9$.
+Bitmap heap scan navštívi bloky $2,7,9$; odkazy zoskupí podľa blokov.
+\item Plánovač odhaduje počet vyhovujúcich riadkov zo štatistík z \verb|ANALYZE|:
+pozná aj najčastejšie hodnoty a približné rozdelenie hodnôt.
+\item Pri veľmi malom výbere často vyhrá index scan, pri väčšom bitmap scan,
+pri čítaní veľkej časti tabuľky sequential scan.
+Záleží aj na rozmiestnení riadkov a cene prístupov.
+\end{itemize}
+{\small Pri nedostatku pamäte môže bitmapa označovať iba celé bloky;
+po ich načítaní treba podmienku znovu overiť na riadkoch.}
+\end{frame}
+
+\begin{frame}[fragile]{Druhy indexov}
+Druhy indexov:
+\begin{itemize}
+  \item btree (default)
+  \item hash
+  \item gist (geografické dáta o polohe)
+  \item GIN (Generalized Inverted Index): pre hodnoty zložené z prvkov (polia, \verb|jsonb|, fulltext)
+  \item \href{https://brilliant.org/wiki/bloom-filter/#:~:text=A%20bloom%20filter%20is%20a,is%20added%20to%20the%20set.}{bloom filter} (\uv{user-installed} in PostgreSQL)
+  \item \href{https://en.wikipedia.org/wiki/K-d_tree}{$k$-dimensional tree}, \dots
+\end{itemize}
+\bigskip
+
+Indexy \green{zrýchľujú vyhľadávanie}, ale \alert{spomaľujú vkladanie}.\\
+Pri vkladaní veľkého množstva dát sa oplatí index zrušiť a potom nanovo vybudovať.
+\end{frame}
+
+\begin{frame}[fragile]{GIN --- invertovaný index}
+\begin{itemize}
+\item Pre každú hodnotu uloží zoznam riadkov, ktoré ho obsahujú v danom kompozitnom atribúte.
+\item Dotaz \verb|@>| nájde kandidátov prienikom zoznamov a potom overí podmienku (\alert{Recheck Cond}).
+\item Cena: pomalší zápis, lebo sa udržiavajú zoznamy.
+\end{itemize}
+{\footnotesize
+\begin{alltt}
+CREATE INDEX request_log_gin ON request_log
+  USING \alert{GIN} (payload);
+EXPLAIN SELECT id FROM request_log
+WHERE payload @> '\{"client": \{"ip": "10.0.0.7"\}\}';
+
+\alert{Bitmap Heap Scan} on request_log  (cost=17.32..21.33)
+  \alert{Recheck Cond}: (payload @> '...'::jsonb)
+  ->  \alert{Bitmap Index Scan} on request_log_gin
+        Index Cond: (payload @> '...'::jsonb)
+\end{alltt}
+}
+\end{frame}
+
+\begin{frame}[fragile]{GIN --- Recheck Cond}
+\begin{itemize}
+\item GIN ukladá kľúče a hodnoty osobitne, nie cesty k nim.
+\item Riadok s \verb|ip| = \verb|10.0.0.7| na vrchu a \verb|ip| = \verb|10.0.0.9| pod \verb|client| obsahuje všetky prvky dotazu: kľúče \verb|client|, \verb|ip| a hodnotu \verb|10.0.0.7|.
+\item Index ho vráti ako kandidáta, ale nie je správny: \verb|10.0.0.7| nie je pod \verb|client|.
+\item \alert{Recheck Cond} overí \verb|@>| na skutočnom riadku a kandidáta vyradí.
+\end{itemize}
+{\scriptsize
+\begin{alltt}
+Bitmap Heap Scan on request_log (actual loops=1)
+  Recheck Cond: (payload @> '\{"client": \{"ip": "10.0.0.7"\}\}'::jsonb)
+  \alert{Rows Removed by Index Recheck: 1}
+  ->  Bitmap Index Scan on request_log_gin (actual loops=1)
+\end{alltt}
+}
+\end{frame}
+
+
+\begin{frame}[fragile]{Životný cyklus dotazu}
+1. Query parsing and translation
+\begin{itemize}
+  \item syntax check --- Je to korektné SQL?
+  \item user privilege check --- Má používateľ oprávnenie pristupovať k db objektom?
+  \item semantic check --- Existujú relácie a atribúty? Sedia dátové typy (napr. pri EXCEPT)?
+  \item cache check --- Ak dotaz neprišiel prvýkrát,
+      možno máme v cache už optimalizovaný preklad do relačnej algebry/fyzických operátorov. Ak nie, preložiť.
+  \item preklad do relačnej algebry
+\end{itemize}
+\end{frame}
+
+\begin{frame}[fragile]{Životný cyklus dotazu}
+2. Query optimization
+\begin{itemize}
+  \item Zozbieranie štatistických dát o reláciách (napr. odhad počtu záznamov).
+  \item Preusporiadanie operátorov relačnej algebry,
+      napr. identifikácia viacnásobného výpočtu toho istého poddotazu či použitie rôznych heuristík.
+  \item Preklad operátorov relačnej algebry do fyzických operátorov.
+  \item Možnosť zvážiť niekoľko rôznych zápisov výpočtu, odhad času, výber najlepšej možnosti
+      (nie nutne najrýchlejšej, možno tiež optimalizovať pamäť).
+  \item Vytvorenie plánu pre výpočet dotazu (query plan, používateľ má možnosť zobraziť pomocou EXPLAIN).
+\end{itemize}
+\end{frame}
+
+\begin{frame}[fragile]{Životný cyklus dotazu}
+3. Query execution
+\begin{itemize}
+  \item FROM, JOIN
+  \item WHERE
+  \item GROUP BY
+  \item HAVING
+  \item SELECT (projection, window functions, CASE, \dots)
+  \item DISTINCT
+  \item ORDER BY
+  \item LIMIT / OFFSET
+\end{itemize}
+Čas výpočtu dotazu možno získať cez EXPLAIN ANALYZE.
+\end{frame}
+
+\begin{frame}[fragile]{Životný cyklus dotazu}
+4. Transmitting results
+\begin{itemize}
+  \item výsledok výpočtu možno uložiť na disk alebo priebežne posielať používateľovi
+  \item rozsiahlejšie výsledky nemožno poslať naraz
+  \item typicky zahŕňa manažment sieťového pripojenia
+  \item z pohľadu programovacieho jazyka práca s objektmi ako \emph{cursor}
+\end{itemize}
+\end{frame}
+
+\begin{frame}[fragile]{Heuristiky pre join}
+Pre optimalizáciu výpočtu joinov existuje rozsiahla literatúra --- ide o kľúčovú operáciu.
+Pár ukážok heuristík (plán výpočtu musíme zvoliť \uv{okamžite}, nemožno vyriešiť NP-ťažké problémy):
+\begin{itemize}
+  \item odsunúť projekcie a selekcie čo najnižšie\\(zmenšuje medzivýsledky; vďaka projekcii sa do diskového bloku vojde viac záznamov)
+  \item uvažovať len o left-deep plans:
+    $$(((A_1\join A_2)\join A_3)\join A_4)\dots$$
+    (znižuje počet možných plánov na $n!$; pri takýchto plánoch možno ľahko uplatniť pipelining --- nemusíme ukladať medzivýsledky na disk)
+\end{itemize}
+\end{frame}
+
+\begin{frame}[fragile]{Heuristiky pre join}
+\begin{itemize}
+  \item počítať karteziánsky súčin, len keď sa tomu nedá vyhnúť\\
+    (join bez podmienok býva veľký)
+  \item \uv{uši v hypergrafe} rátať až na konci (keď nejaká relácia má atribúty z joinovacích podmienok spoločné len s jednou inou, odsunúť ju vo výpočte joinu na neskôr)
+\end{itemize}
+Ak potrebujete rátať join \uv{manuálne} (pre rozsiahle dáta mimo relačného DBMS), azda sa oplatí naštudovať si niečo o optimalizácii joinov.
+\end{frame}
+
+\begin{frame}[fragile]{Query plans --- EXPLAIN}
+\begin{itemize}
+  \item Plánovanie výpočtu dotazu budeme sledovať pre databázu PostgreSQL.
+  \item Príkaz EXPLAIN SELECT ... miesto výpočtu dotazu vráti
+      plán jeho výpočtu zapísaný pomocou fyzických operátorov,
+      aj s odhadmi času potrebného na jednotlivé kroky.
+  \item Pri odhade ceny sa využívajú konfigurovateľné konštanty
+  (napr. vyhodnotenie bežnej podmienky za WHERE je 400x rýchlejšie ako načítanie bloku z disku).
+  \item Reálny čas výpočtu vieme získať pomocou\\ EXPLAIN ANALYZE SELECT ... .
+  \item SQLite má plán dotazu v príkaze \texttt{EXPLAIN QUERY PLAN}; samotný \texttt{EXPLAIN} vypíše bajtkód virtuálneho stroja, ktorý je oveľa menej zrozumiteľný.
+\end{itemize}
+\end{frame}
+
+\begin{frame}[fragile]{Query plans --- EXPLAIN}
+\begin{alltt}
+\alert{EXPLAIN}
+SELECT e.name
+FROM employee e
+WHERE e.salary > 1000
+ORDER BY e.name;
+\end{alltt}
+\scriptsize
+\begin{alltt}
+----------------------------------------------------------------------------------------------------------------------------------------
+ \alert{Sort}  (cost=16.30..16.52 rows=90 width=118)
+   Sort Key: name
+   ->  Seq Scan on employee e  (cost=0.00..13.38 rows=90 width=118)
+         Filter: (salary > '1000'::numeric)
+\end{alltt}
+\end{frame}
+
+\begin{frame}[fragile]{Query plans --- EXPLAIN}
+EXPLAIN uvádza odhadovanú veľkosť relácií. Je značne nepresná (odhad je 90 záznamov, v skutočnosti ich je $< 20$).
+Presná evidencia by viedla k spomaleniu INSERT/UPDATE/DELETE.
+\bigskip
+
+Ľavé číslo pri odhade ceny (cost) znamená čas do vypočítania prvého riadka výstupu
+(napr. pre operátor Sort sa celá práca musí vykonať pred vypísaním prvého riadka).
+Pravé číslo je čas ukončenia činnosti operátora.
+Udávané čísla sú kumulatívne (zahŕňajú aj čas výpočtu podriadených operátorov).
+Jednotky sú abstraktné (1 zodpovedá sekvenčnému načítaniu jednej stránky). \texttt{rows} je odhad počtu riadkov výstupu, \texttt{width} odhad veľkosti jedného riadku v bajtoch. V ďalších plánoch na slajdoch ich vynechávame, ale v reálnom výstupe EXPLAIN ich uvidíte.
+\end{frame}
+
+
+
+\begin{frame}[fragile]{Query plans --- EXPLAIN}
+\begin{alltt}
+\alert{EXPLAIN}
+SELECT d.name, e.name
+FROM department d
+JOIN employee e ON d.name < e.name;
+\end{alltt}
+\scriptsize
+\begin{alltt}
+----------------------------------------------------------------------------------------------------------------------------------------
+\alert{Nested Loop}  (cost=0.00..1241.38)
+Join Filter: ((d.name)::text < (e.name)::text)
+  ->  Seq Scan on department d  (cost=0.00..13.00)
+  ->  Materialize  (cost=0.00..14.05)
+        ->  Seq Scan on employee e
+            (cost=0.00..12.70)
+\end{alltt}
+\end{frame}
+
+\begin{frame}[fragile]{Query plans --- EXPLAIN}
+Počítame v PostgreSQL dotaz
+\begin{alltt}
+\alert{EXPLAIN}
+SELECT d.name, e.name
+FROM department d
+JOIN employee e ON d.dept_id = e.dept_id
+WHERE e.salary > 1000;
+\end{alltt}
+Pre relácie employee a department sme nevytvorili žiaden index. Pozor: DBMS často vytvorí index automaticky (napr. pre \verb|PRIMARY KEY|), v našej schéme však PRIMARY KEY nemáme.
+V tabuľkách je cca 10 záznamov.
+\end{frame}
+
+\begin{frame}[fragile]{Query plans --- EXPLAIN}
+Oddelenia a mená zamestnancov s platom nad 1000.
+\par\bigskip
+\begin{minipage}{0.48\linewidth}\centering
+\resizebox{\linewidth}{!}{%
+\begin{tikzpicture}[scale=1.15,
+ op/.style={draw=gray!60,fill=gray!25,text=black,rounded corners=3pt,inner sep=4pt,align=center,font=\normalsize},
+ rel/.style={draw=gray!60,fill=green!20,text=black,inner sep=4pt,minimum width=2.6cm,font=\normalsize},
+ conn/.style={draw=gray!80,line width=0.8pt}]
+  \node[op] (pi) at (0,5.40) {{\Large $\pi$}\\{\footnotesize $d.name,\,e.name$}};
+  \node[op] (sg) at (0,4.05) {{\Large $\sigma$}\\{\footnotesize $e.salary>1000$}};
+  \node[op] (jn) at (0,2.70) {{\Large $\bowtie$}\\{\footnotesize $d.dept\_id=e.dept\_id$}};
+  \node[op] (rd) at (-1.5,1.35) {{\Large $\rho$}\\{\footnotesize $d$}};
+  \node[op] (re) at (1.5,1.35) {{\Large $\rho$}\\{\footnotesize $e$}};
+  \node[rel] (dep) at (-1.5,0.00) {department};
+  \node[rel] (emp) at (1.5,0.00) {employee};
+  \draw[conn] (pi.south) -- (sg.north);
+  \draw[conn] (sg.south) -- (jn.north);
+  \draw[conn] (jn.south) -- (rd.north);
+  \draw[conn] (jn.south) -- (re.north);
+  \draw[conn] (rd.south) -- (dep.north);
+  \draw[conn] (re.south) -- (emp.north);
+\end{tikzpicture}}
+\end{minipage}
+\hfill
+\begin{minipage}{0.48\linewidth}\centering
+\resizebox{\linewidth}{!}{%
+\begin{tikzpicture}[scale=1.15,
+ op/.style={draw=gray!60,fill=gray!25,text=black,rounded corners=3pt,inner sep=4pt,align=center,font=\normalsize},
+ rel/.style={draw=gray!60,fill=green!20,text=black,inner sep=4pt,minimum width=2.6cm,font=\normalsize},
+ conn/.style={draw=gray!80,line width=0.8pt}]
+  \node[op] (pi) at (0,5.40) {{\Large $\pi$}\\{\footnotesize $d.name,\,e.name$}};
+  \node[op] (jn) at (0,4.05) {{\Large $\bowtie$}\\{\footnotesize $d.dept\_id=e.dept\_id$}};
+  \node[op] (rd) at (-1.5,2.70) {{\Large $\rho$}\\{\footnotesize $d$}};
+  \node[op] (re) at (1.5,2.70) {{\Large $\rho$}\\{\footnotesize $e$}};
+  \node[rel] (dep) at (-1.5,1.35) {department};
+  \node[op] (sg) at (1.5,1.35) {{\Large $\sigma$}\\{\footnotesize $e.salary>1000$}};
+  \node[rel] (emp) at (1.5,0.00) {employee};
+  \draw[conn] (pi.south) -- (jn.north);
+  \draw[conn] (jn.south) -- (rd.north);
+  \draw[conn] (jn.south) -- (re.north);
+  \draw[conn] (rd.south) -- (dep.north);
+  \draw[conn] (re.south) -- (sg.north);
+  \draw[conn] (sg.south) -- (emp.north);
+\end{tikzpicture}}
+\end{minipage}
+\end{frame}
+
+\begin{frame}[fragile]{Query plans --- EXPLAIN}
+\hbox{}{
+\footnotesize
+\begin{alltt}
+----------------------------------------------------------------------------------------------------------------------------------------
+\alert{Hash Join}  (cost=16.75..30.36)
+Hash Cond: (e.dept_id = d.dept_id)
+  ->  Seq Scan on employee e  (cost=0.00..13.38)
+        Filter: (salary > '1000'::numeric)
+  ->  Hash  (cost=13.00..13.00)
+        ->  Seq Scan on department d
+            (cost=0.00..13.00)
+\end{alltt}
+}
+Celá tabuľka je v jednom bloku, preto sekvenčný scan je rýchly.
+\end{frame}
+
+\begin{frame}[fragile]{Query plans --- EXPLAIN}
+Do relácie department sme pridali milión riadkov a nastavili \verb|PRIMARY KEY (dept_id)|.
+
+
+{
+\scriptsize
+\begin{alltt}
+----------------------------------------------------------------------------------------------------------------------------------------
+Nested Loop  (cost=\blue{0.42..26.43})
+  ->  Seq Scan on employee e  (cost=0.00..1.10)
+        Filter: (salary > '1000'::numeric)
+  ->  \alert{Index Scan using department_pkey on department d}
+      (cost=\blue{0.42..8.44})
+        Index Cond: (dept_id = e.dept_id)
+\end{alltt}
+}
+Zamestnancov vyhovujúcich filtru je málo. Pre každého vyhľadáme oddelenie cez index
+\verb|department_pkey|, takže nemusíme prechádzať celú miliónovú tabuľku oddelení.
+Stále ide o \alert{nested loop join}: index zrýchľuje jeho \alert{vnútorný cyklus}.
+\end{frame}
+
+\begin{frame}[fragile]{Query plans --- EXPLAIN}
+Do nového indexu dáme všetky údaje potrebné pre tento dotaz:\\[3mm]
+{\small\texttt{CREATE INDEX i3 ON department(dept\_id) \alert{INCLUDE (name)};}}
+\scriptsize
+\begin{alltt}
+----------------------------------------------------------------------------------------------------------------------------------------
+Nested Loop  (cost=\green{0.42..14.43})
+  ->  Seq Scan on employee e  (cost=0.00..1.10)
+        Filter: (salary > '1000'::numeric)
+  ->  \alert{Index Only Scan using i3 on department d}
+      (cost=0.42..4.44)
+        Index Cond: (dept_id = e.dept_id)
+\end{alltt}
+\end{frame}
+
+\begin{frame}[fragile]{Query plans --- EXPLAIN}
+Do relácie employee sme pridali tisíc riadkov (department zostáva milión riadkov).
+\scriptsize
+\begin{alltt}
+----------------------------------------------------------------------------------------------------------------------------------------
+\alert{Merge Join}  (cost=21.92..22.73)
+Merge Cond: (d.dept_id = e.dept_id)
+  ->  Index Scan using department_pkey on department d
+      (cost=0.42..31223.00)
+  ->  Sort  (cost=21.46..21.48)
+        Sort Key: e.dept_id
+        ->  Seq Scan on employee e
+            (cost=0.00..21.36)
+              Filter: (salary > '1000'::numeric)
+\end{alltt}
+\end{frame}
+
+\begin{frame}[fragile]{Query plans --- EXPLAIN}
+Vrátime sa k pôvodným malým tabuľkám. Počítame dotaz
+\begin{alltt}
+\alert{EXPLAIN}
+SELECT d.dept_id, COUNT(e.emp_id) AS c
+FROM department d
+JOIN employee e ON e.dept_id = d.dept_id
+WHERE NOT EXISTS (
+    SELECT 1
+    FROM emp_projects ep
+    WHERE ep.emp_id = e.emp_id
+)
+GROUP BY d.dept_id;
+\end{alltt}
+Pre uvedené relácie sme nevytvorili žiadne indexy.
+\end{frame}
+
+\begin{frame}[fragile]{Query plans --- EXPLAIN}
+Počet zamestnancov bez projektu na jednotlivých oddeleniach.
+\par\bigskip
+\begin{minipage}{0.48\linewidth}\centering
+\resizebox{\linewidth}{!}{%
+\begin{tikzpicture}[scale=1.15,
+ op/.style={draw=gray!60,fill=gray!25,text=black,rounded corners=3pt,inner sep=4pt,align=center,font=\normalsize},
+ rel/.style={draw=gray!60,fill=green!20,text=black,inner sep=4pt,minimum width=2.6cm,font=\normalsize},
+ conn/.style={draw=gray!80,line width=0.8pt}]
+  \node[op] (gm) at (0,6.75) {{\Large $\gamma$}\\{\footnotesize $d.dept\_id;\,\mathrm{COUNT}(emp\_id)\to c$}};
+  \node[op] (aj) at (0,5.40) {{\Large $\rhd$}\\{\footnotesize $ep.emp\_id=e.emp\_id$}};
+  \node[op] (jn) at (-2.3,4.05) {{\Large $\bowtie$}\\{\footnotesize $d.dept\_id=e.dept\_id$}};
+  \node[op] (rp) at (2.6,4.05) {{\Large $\rho$}\\{\footnotesize $ep$}};
+  \node[op] (rd) at (-3.6,2.70) {{\Large $\rho$}\\{\footnotesize $d$}};
+  \node[op] (re) at (-0.6,2.70) {{\Large $\rho$}\\{\footnotesize $e$}};
+  \node[rel] (dep) at (-3.6,1.35) {department};
+  \node[rel] (emp) at (-0.6,1.35) {employee};
+  \node[rel] (ep) at (2.6,2.70) {emp\_projects};
+  \draw[conn] (gm.south) -- (aj.north);
+  \draw[conn] (aj.south) -- (jn.north);
+  \draw[conn] (aj.south) -- (rp.north);
+  \draw[conn] (jn.south) -- (rd.north);
+  \draw[conn] (jn.south) -- (re.north);
+  \draw[conn] (rd.south) -- (dep.north);
+  \draw[conn] (re.south) -- (emp.north);
+  \draw[conn] (rp.south) -- (ep.north);
+\end{tikzpicture}}
+\end{minipage}
+\hfill
+\begin{minipage}{0.48\linewidth}\centering
+\resizebox{\linewidth}{!}{%
+\begin{tikzpicture}[scale=1.15,
+ op/.style={draw=gray!60,fill=gray!25,text=black,rounded corners=3pt,inner sep=4pt,align=center,font=\normalsize},
+ rel/.style={draw=gray!60,fill=green!20,text=black,inner sep=4pt,minimum width=2.6cm,font=\normalsize},
+ conn/.style={draw=gray!80,line width=0.8pt}]
+  \node[op] (gm) at (0,6.75) {{\Large $\gamma$}\\{\footnotesize $d.dept\_id;\,\mathrm{COUNT}(emp\_id)\to c$}};
+  \node[op] (jn) at (0,5.40) {{\Large $\bowtie$}\\{\footnotesize $d.dept\_id=e.dept\_id$}};
+  \node[op] (rd) at (-2.2,4.05) {{\Large $\rho$}\\{\footnotesize $d$}};
+  \node[op] (aj) at (2.4,4.05) {{\Large $\rhd$}\\{\footnotesize $ep.emp\_id=e.emp\_id$}};
+  \node[rel] (dep) at (-2.2,2.70) {department};
+  \node[op] (re) at (1.0,2.70) {{\Large $\rho$}\\{\footnotesize $e$}};
+  \node[op] (rp) at (3.6,2.70) {{\Large $\rho$}\\{\footnotesize $ep$}};
+  \node[rel] (emp) at (1.0,1.35) {employee};
+  \node[rel] (ep) at (3.6,1.35) {emp\_projects};
+  \draw[conn] (gm.south) -- (jn.north);
+  \draw[conn] (jn.south) -- (rd.north);
+  \draw[conn] (jn.south) -- (aj.north);
+  \draw[conn] (rd.south) -- (dep.north);
+  \draw[conn] (aj.south) -- (re.north);
+  \draw[conn] (aj.south) -- (rp.north);
+  \draw[conn] (re.south) -- (emp.north);
+  \draw[conn] (rp.south) -- (ep.north);
+\end{tikzpicture}}
+\end{minipage}
+\end{frame}
+
+\begin{frame}[fragile]{Query plans --- EXPLAIN}
+Fyzický plán (query plan):
+\bigskip
+
+\scriptsize
+\begin{alltt}
+HashAggregate  (cost=3.55..3.59)
+  Group Key: d.dept_id
+  ->  Hash Join  (cost=2.27..3.52)
+        Hash Cond: (e.dept_id = d.dept_id)
+        ->  \alert{Hash Anti Join}  (cost=1.18..2.39)
+              Hash Cond: (e.emp_id = ep.emp_id)
+              ->  Seq Scan on employee e
+                  (cost=0.00..1.11)
+              ->  Hash  (cost=1.08..1.08)
+                    ->  Seq Scan on emp_projects ep
+                        (cost=0.00..1.08)
+        ->  Hash  (cost=1.04..1.04)
+              ->  Seq Scan on department d
+                  (cost=0.00..1.04)
+\end{alltt}
+\end{frame}
+
+\begin{frame}[fragile]{Query plans --- EXPLAIN}
+\vspace*{6mm}
+Ten istý dotaz pri 100 000 riadkoch v každej tabuľke:
+\scriptsize
+\begin{alltt}
+HashAggregate  (cost=9653.28..10117.69)
+  Group Key: d.dept_id
+  ->  Hash Join  (cost=6178.00..9421.07)
+        Hash Cond: (e.dept_id = d.dept_id)
+        ->  \alert{Hash Anti Join}
+            (cost=2693.00..5814.16)
+              Hash Cond: (e.emp_id = ep.emp_id)
+              ->  Seq Scan on employee e
+                  (cost=0.00..2334.00)
+              ->  Hash  (cost=1443.00..1443.00)
+                    ->  Seq Scan on emp_projects ep
+                        (cost=0.00..1443.00)
+        ->  Hash  (cost=2235.00..2235.00)
+              ->  Seq Scan on department d
+                  (cost=0.00..2235.00)
+\end{alltt}
+\end{frame}
+
+\begin{frame}[fragile]{Query plans --- EXPLAIN}
+\vspace*{6mm}
+{\small Ten istý dotaz pri 1 000 000 riadkoch v každej tabuľke:}
+\tiny
+\begin{alltt}
+Finalize GroupAggregate  (cost=84641.74..142659.79)
+  Group Key: d.dept_id
+  ->  Gather Merge  (cost=84641.74..135673.37)
+        Workers Planned: 2
+        ->  Partial GroupAggregate  (cost=83641.72..87237.67)
+              Group Key: d.dept_id
+              ->  Sort  (cost=83641.72..84155.42)
+                    Sort Key: d.dept_id
+                    ->  Parallel Hash Join  (cost=43767.37..62698.72)
+                          Hash Cond: (d.dept_id = e.dept_id)
+                          ->  Parallel Seq Scan on department d
+                              (cost=0.00..16512.67)
+                          ->  Parallel Hash  (cost=41198.83..41198.83)
+                                ->  \alert{Parallel Hash Anti Join}
+                                    (cost=15428.00..41198.83)
+                                      Hash Cond: (e.emp_id = ep.emp_id)
+                                      ->  Parallel Seq Scan on employee e
+                                          (cost=0.00..17500.67)
+                                      ->  Parallel Hash  (cost=8591.67..8591.67)
+                                            ->  Parallel Seq Scan on emp_projects ep
+                                                (cost=0.00..8591.67)
+\end{alltt}
+\end{frame}
+
+% https://www.postgresql.org/docs/15/parallel-plans.html#PARALLEL-PLANS-PARALLEL-AGGREGATION
+\begin{frame}[fragile]{Paralelná agregácia: Partial a Finalize}
+\begin{itemize}
+\item Procesy si rozdelia spracovanie vstupu.
+Každý vypočíta čiastkový výsledok pre skupiny, ktoré našiel.
+To isté oddelenie sa môže vyskytnúť vo výsledkoch viacerých procesov.
+\item \verb|Gather| alebo \verb|Gather Merge| zozbiera čiastkové výsledky.
+\item \verb|Finalize GroupAggregate| ich skombinuje:
+pri \verb|COUNT| sčíta čiastkové počty.
+Ak jeden proces pre oddelenie 10 napočítal 30 zamestnancov a druhý 45, výsledok je 75.
+\end{itemize}
+\medskip
+\verb|Partial| označuje čiastkový výsledok paralelného výpočtu;
+\verb|HashAggregate| a \verb|GroupAggregate| označujú spôsob agregácie.
+\end{frame}
+
+\begin{frame}[fragile]{Query plans --- EXPLAIN}
+Počet zamestnancov bez projektu na oddeleniach s \verb|dept_id <= 100|.
+\par\bigskip
+Hash index na \verb|emp_projects(emp_id)| pri dotaze s výberom oddelení
+(filter \verb|dept_id| $\le 100$, 1 000 000 záznamov v každej tabuľke):
+{\footnotesize
+\begin{alltt}
+SELECT d.dept_id, COUNT(e.emp_id) AS c
+FROM department d
+\blue{JOIN employee e ON e.dept_id = d.dept_id}
+WHERE d.dept_id <= 100
+  \alert{AND NOT EXISTS (}
+      SELECT 1
+      FROM \green{emp_projects ep}
+      WHERE ep.emp_id = e.emp_id
+  \alert{)}
+GROUP BY d.dept_id;
+\end{alltt}
+}
+\verb|CREATE INDEX ON emp_projects USING HASH (emp_id)|
+\end{frame}
+
+\begin{frame}[fragile]{Query plans --- EXPLAIN}
+\vspace*{-6mm}
+\begin{center}
+\begin{tikzpicture}[scale=0.8,
+ op/.style={draw=gray!60,fill=gray!25,text=black,rounded corners=3pt,inner sep=4pt,align=center,font=\normalsize},
+ rel/.style={draw=gray!60,fill=green!20,text=black,inner sep=4pt,minimum width=2.6cm,font=\normalsize},
+ conn/.style={draw=gray!80,line width=0.8pt}]
+  \node[anchor=north west,font=\tiny,text width=3.2cm,align=left] at (-8.0,7.0) {Táto relačná algebra platí pre oba plány nižšie; líšia sa len fyzickými operátormi.};
+  \node[op] (gm) at (0.00,7.80) {{\Large $\gamma$}\\{\footnotesize $d.dept\_id;\,\mathrm{COUNT}(emp\_id)\to c$}};
+  \node[op,fill=red!35,draw=red!70!black] (aj) at (0.00,5.86) {{\Large $\rhd$}\\{\footnotesize $ep.emp\_id=e.emp\_id$}};
+  \node[op,fill=Cerulean!30,draw=Cerulean!80!black] (jn) at (-2.73,3.90) {{\Large $\bowtie$}\\{\footnotesize $d.dept\_id=e.dept\_id$}};
+  \node[op,fill=LimeGreen!50,draw=LimeGreen!60!black] (rp) at (2.94,3.90) {{\Large $\rho$}\\{\footnotesize $ep$}};
+  \node[op] (rd) at (-4.20,1.94) {{\Large $\sigma\,\rho$}\\{\footnotesize $d,\ dept\_id\le 100$}};
+  \node[op] (re) at (-0.26,1.94) {{\Large $\rho$}\\{\footnotesize $e$}};
+  \node[rel] (dep) at (-4.20,0.00) {department};
+  \node[rel] (emp) at (-0.26,0.00) {employee};
+  \node[rel,fill=LimeGreen!50,draw=LimeGreen!60!black] (ep) at (2.94,1.94) {emp\_projects};
+  \draw[conn] (gm.south) -- (aj.north);
+  \draw[conn] (aj.south) -- (jn.north);
+  \draw[conn] (aj.south) -- (rp.north);
+  \draw[conn] (jn.south) -- (rd.north);
+  \draw[conn] (jn.south) -- (re.north);
+  \draw[conn] (rd.south) -- (dep.north);
+  \draw[conn] (re.south) -- (emp.north);
+  \draw[conn] (rp.south) -- (ep.north);
+\end{tikzpicture}
+\end{center}
+\end{frame}
+
+\begin{frame}[fragile]{Query plans --- EXPLAIN}
+Plán bez indexu:
+\tiny
+\begin{alltt}
+Finalize GroupAggregate  (cost=\alert{29756.72..29762.08})
+  Group Key: d.dept_id
+  ->  Gather Merge  (cost=29756.72..29761.44)
+    Workers Planned: 2
+    ->  Partial GroupAggregate  (cost=28756.70..28757.03)
+      Group Key: d.dept_id
+      ->  Sort  (cost=28756.70..28756.74)
+        Sort Key: d.dept_id
+        ->  \alert{Parallel Hash Right Anti Join}  (cost=18601.98..28756.29)
+          Hash Cond: (ep.emp_id = e.emp_id)
+          ->  \green{Parallel Seq Scan on emp_projects ep}  (cost=0.00..8591.67)
+          ->  \blue{Parallel Hash}  (cost=18601.51..18601.51)
+            ->  \blue{Hash Join}  (cost=7.09..18601.51)
+              Hash Cond: (e.dept_id = d.dept_id)
+              ->  Parallel Seq Scan on employee e  (cost=0.00..17500.67)
+              ->  Hash  (cost=5.98..5.98)
+                ->  Index Only Scan using department_pkey on department d  (cost=0.42..5.98)
+                  Index Cond: (dept_id <= 100)
+                  \end{alltt}
+\end{frame}
+
+\begin{frame}[fragile]{Query plans --- EXPLAIN}
+Plán s hash indexom:
+\tiny
+\begin{alltt}
+Finalize GroupAggregate  (cost=\alert{19603.67..19608.76})
+  Group Key: d.dept_id
+  ->  Gather Merge  (cost=19603.67..19608.14)
+    Workers Planned: 2
+    ->  Partial GroupAggregate  (cost=18603.65..18603.97)
+      Group Key: d.dept_id
+      ->  Sort  (cost=18603.65..18603.70)
+        Sort Key: d.dept_id
+        ->  \alert{Nested Loop Anti Join}  (cost=7.09..18603.28)
+          ->  \blue{Hash Join}  (cost=7.09..18601.51)
+            Hash Cond: (e.dept_id = d.dept_id)
+            ->  Parallel Seq Scan on employee e  (cost=0.00..17500.67)
+            ->  Hash  (cost=5.98..5.98)
+              ->  Index Only Scan using department_pkey on department d  (cost=0.42..5.98)
+                Index Cond: (dept_id <= 100)
+          ->  \green{Index Scan using emp_projects_emp_id_idx on emp_projects ep}  (cost=0.00..0.07)
+            Index Cond: (emp_id = e.emp_id)
+            \end{alltt}
+\end{frame}
+
+\begin{frame}[fragile]{Query plans --- EXPLAIN}
+Čo sa v pláne zmenilo:
+\begin{itemize}
+\item \alert{Červená}: zmenený operátor (\alert{hash anti join} na \alert{nested loop anti join}) a celkový odhad času (cost).
+\item \blue{Modrá}: podstrom \verb|employee| $\bowtie$ \verb|department| (zamestnanci oddelení \verb|dept_id <= 100|).
+Bez indexu sa tento výsledok hašuje (\texttt{Parallel Hash}) a oproti nemu sa prechádza \verb|emp_projects|.
+S indexom sa zamestnanci prechádzajú jeden po druhom ako vonkajší vstup (\texttt{Nested Loop}).
+\item \green{Zelená}: prístup k \verb|emp_projects|. Bez indexu sa celá tabuľka prečíta sekvenčne (\texttt{Parallel Seq Scan});
+s indexom sa čítajú len záznamy konkrétneho zamestnanca cez \texttt{Index Scan}.
+\item Hash index nepomáha \texttt{Hash Join}u (ten si hašovaciu tabuľku vytvorí sám). Skôr urýchľuje \texttt{Nested Loop} (tu pri vyhľadávaní v \verb|emp_projects|).
+\end{itemize}
+\end{frame}
+
+\begin{frame}[fragile]{Query plans --- EXPLAIN}
+\begin{itemize}
+\item (ilustratívne čísla, nie namerané hodnoty) Plánovanie trvalo prvýkrát 22 ms, pri opakovanom výpočte toho istého dotazu už len 0.5 ms (detaily pre PostgreSQL na ďalšom slide).
+\item Plán závisí od vstupov optimalizácie (štatistiky o dátach, hodnoty parametrov, nastavenia),
+    preto sa môže zmeniť, aj keď sa samotný dotaz nezmenil (napr. po ANALYZE).
+    Pri veľkom počte joinovaných relácií sa namiesto úplného prehľadávania často používa heuristika alebo genetický algoritmus (napr. PostgreSQL od 12 relácií).
+\item Väčšina práce pri výpočte dotazu spočíva v usporadúvaní, spájaní a hashovaní (sort / merge / hash), znova a znova.
+\end{itemize}
+\end{frame}
+
+\begin{frame}[fragile]{Prepared statements}
+Dotaz možno pripraviť vopred a potom ho opakovane vykonávať s rôznymi parametrami.
+\begin{alltt}
+\alert{PREPARE} emp_by_dept (int) AS
+    SELECT name FROM employee WHERE dept_id = $1;
+
+\alert{EXECUTE} emp_by_dept(7);
+\alert{EXECUTE} emp_by_dept(3);
+
+\alert{DEALLOCATE} emp_by_dept;
+\end{alltt}
+\bigskip
+PostgreSQL: ad hoc dotaz sa optimalizuje pri každom spustení. Prepared statement môže po niekoľkých
+vykonaniach použiť výsledok optimalizácie uložený v cache, takže sa optimalizácia neopakuje.
+Vytvorený plán nemusí fungovať dobre pre každú hodnotu parametrov, napr. ak hodnota parametra vyberá z nejakej tabuľky veľmi rôzne počty riadkov.
+\end{frame}
+
+% Plan shapes verified on PostgreSQL 16.15 with 100,000 non-NULL integer
+% values, no index and parallel execution disabled; relation renamed to employee.
+% Timings and instrumentation details are intentionally omitted.
+% https://doxygen.postgresql.org/tuplesort_8c.html
+\begin{frame}[fragile]{Query plans --- MAX a ORDER BY s LIMIT}
+Zjednodušené plány pre väčšiu neprázdnu tabuľku bez indexu na
+\texttt{salary}; platy nie sú \texttt{NULL}.
+
+\begin{columns}[T]
+\begin{column}{.48\textwidth}
+\scriptsize
+\begin{alltt}
+EXPLAIN ANALYZE
+SELECT MAX(salary)
+FROM employee;
+
+Aggregate
+  -> Seq Scan on employee
+\end{alltt}
+\end{column}
+\begin{column}{.48\textwidth}
+\scriptsize
+\begin{alltt}
+EXPLAIN ANALYZE
+SELECT salary FROM employee
+ORDER BY salary DESC LIMIT 1;
+
+Limit
+  -> Sort
+       Sort Key: salary DESC
+       Sort Method: \alert{top-N heapsort}
+       -> Seq Scan on employee
+\end{alltt}
+\end{column}
+\end{columns}
+
+\bigskip
+
+\begin{itemize}
+\item Pre LIMIT 1 si top-N heapsort ponecháva najlepší doterajší riadok;
+  nemusí uchovať ani utriediť celý vstup.
+\item Oba varianty prejdú všetky riadky, majú lineárnu časovú zložitosť
+  a~v~tomto prípade bývajú približne rovnako rýchle.
+\end{itemize}
+\end{frame}
+
+% Same experiment with a B-tree index: both index scans returned one row.
+% https://www.postgresql.org/docs/15/indexes-ordering.html
+\begin{frame}[fragile]{Query plans --- MAX a ORDER BY s indexom}
+B-tree index \texttt{i\_salary} na stĺpci \texttt{salary}:
+
+\bigskip
+
+\begin{columns}[T]
+\begin{column}{.48\textwidth}
+\footnotesize\texttt{MAX(salary)}
+\scriptsize
+\begin{alltt}
+Result
+  InitPlan 1 (returns $0)
+    -> Limit
+      -> Index Only Scan Backward
+           using i_salary
+\end{alltt}
+\end{column}
+\begin{column}{.48\textwidth}
+\footnotesize\texttt{ORDER BY ... LIMIT 1}
+\scriptsize
+\begin{alltt}
+Limit
+  -> Index Only Scan Backward
+       using i_salary
+\end{alltt}
+\end{column}
+\end{columns}
+
+\bigskip
+
+\begin{itemize}
+\item Oba varianty vyhľadajú najväčšiu hodnotu cez index
+  a~skončia po jednom výslednom riadku; neprechádzajú celú tabuľku.
+\item Namiesto lineárneho prechodu stačí logaritmické vyhľadanie v~B-tree:
+  pri veľkej tabuľke môže byť \alert{zrýchlenie obrovské}.
+\end{itemize}
+\end{frame}
+
+\begin{frame}{Literatúra}
+B+ stromy a indexy
+\begin{itemize}
+\item {\scriptsize\url{https://cs186berkeley.net/notes/note4/}}
+\item {\scriptsize\url{https://www.db-book.com/slides-dir/PDF-dir/ch14.pdf}}
+\end{itemize}
+\bigskip
+
+Optimalizácia dotazov
+\begin{itemize}
+\item {\scriptsize\url{https://cs186berkeley.net/notes/note10/}}
+\item {\scriptsize\url{https://www.db-book.com/slides-dir/PDF-dir/ch16.pdf}}
+\item {\scriptsize\url{https://pganalyze.com/docs/explain/scan-nodes}}
+\item {\scriptsize\url{https://www.postgresql.org/docs/current/performance-tips.html}}
+\end{itemize}
+\end{frame}
+
+
+\begin{frame}{Na zamyslenie}
+\begin{itemize}
+\item Prečo sa v databázových indexoch nepoužívajú binárne stromy?
+\item Aké výhody a nevýhody má pridanie indexu do databázy?
+\item Uveďte príklad dotazu, pri ktorom by použitie indexu spomalilo výpočet (hoci index je navrhnutý dobre a pri iných dotazoch slúži, ako má).
+\item Ako funguje \emph{bitmap index scan}? (PostgreSQL: \href{https://www.postgresql.org/docs/current/indexes-bitmap-scans.html}{link})
+\item Pred samotným výpočtom dotazu sa vykoná veľa krokov (napr. parsovanie dotazu a preklad do relačnej algebry).
+    Ktorý z týchto krokov trvá zvyčajne najdlhšie?
+\item Ako možno na úrovni relačnej algebry (bez skúmania dát v tabuľkách) optimalizovať operátory $\sigma$ a $\pi$?
+\end{itemize}
+\end{frame}
+
+\end{document}

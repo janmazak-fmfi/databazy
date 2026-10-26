@@ -1,0 +1,653 @@
+\PassOptionsToPackage{dvipsnames}{xcolor}
+
+\documentclass[12pt]{beamer}
+\usetheme{default}
+\usecolortheme{crane}
+
+\usepackage[T1]{fontenc}
+\usepackage[slovak]{babel}
+
+\usepackage{amsmath}
+\usepackage{amsmath, amssymb}
+\usepackage{hyperref, url}
+\usepackage{graphicx}
+\usepackage{array}
+\usepackage{alltt}
+\usepackage{tikz}
+\usetikzlibrary{matrix,calc}
+\usepackage[normalem]{ulem} % \sout for struck-through rows
+
+%\setbeamersize{text margin left=1pt,text margin right=1pt}
+\setbeamertemplate{footline}[frame number]
+\beamertemplatenavigationsymbolsempty
+
+% https://www.overleaf.com/learn/latex/Using_colours_in_LaTeX
+\def\blue#1{\textcolor{Cerulean}{#1}}
+\def\green#1{\textcolor{LimeGreen}{#1}}
+
+% database-related stuff
+\DeclareMathOperator{\join}{\bowtie}
+\DeclareMathOperator{\antijoin}{\rhd}
+
+\DeclareMathOperator{\lubi}{lubi}
+\DeclareMathOperator{\capuje}{capuje}
+\DeclareMathOperator{\navstivil}{navstivil}
+\DeclareMathOperator{\vypil}{vypil}
+\DeclareMathOperator{\answer}{answer}
+
+% TikZ helpers for the JOIN slides (table look-alikes of the former PNG images)
+\definecolor{tblhdr}{RGB}{91,155,213}
+\definecolor{tbldark}{RGB}{208,222,240}
+\definecolor{tbllight}{RGB}{232,238,248}
+\definecolor{tblhl}{RGB}{197,224,180}
+\definecolor{vennhl}{RGB}{132,185,87}
+\tikzset{
+  dbt/.style={matrix of nodes, anchor=north west,
+    nodes={draw=none, anchor=center, font=\fontsize{7}{8}\selectfont, minimum height=0.34cm, inner ysep=0pt, inner xsep=0.3mm},
+    row 1/.style={nodes={fill=tblhdr, text=white, font=\fontsize{7}{8}\selectfont\bfseries}},
+    row 2/.style={nodes={fill=tbllight}}, row 3/.style={nodes={fill=tbldark}},
+    row 4/.style={nodes={fill=tbllight}}, row 5/.style={nodes={fill=tbldark}},
+    row 6/.style={nodes={fill=tbllight}}, row 7/.style={nodes={fill=tbldark}},
+    row 8/.style={nodes={fill=tbllight}}, row 9/.style={nodes={fill=tbldark}},
+    row 10/.style={nodes={fill=tbllight}}},
+  tcap/.style={anchor=south west, yshift=1pt, font=\tiny\itshape, text=gray!70!black},
+}
+\newcommand{\dead}[1]{\textcolor{gray}{\sout{#1}}}
+
+
+\title{Relačný model a SQL}
+\author{Ján Mazák}
+\institute{FMFI UK Bratislava}
+\date{}
+
+
+\begin{document}
+
+\frame{\titlepage}
+
+\begin{frame}{Relačný model}
+Databáza pozostáva z tabuliek (\alert{relácií}).\\[3mm]
+
+Stĺpce --- \alert{atribúty}; každý má doménu (množinu povolených hodnôt, čiže dátový typ prípadne zúžený dodatočnými obmedzeniami). Určené pomenovaním alebo pozíciou.\\[3mm]
+
+Riadky --- \alert{záznamy} (records, rows, tuples, n-tice).
+\end{frame}
+
+\begin{frame}[fragile]{Relačný model}
+\begin{verbatim}
+CREATE TABLE employees (
+    id INTEGER PRIMARY KEY,
+    lastName TEXT NOT NULL,
+    firstName VARCHAR(255),
+    age INTEGER CHECK (age >= 18)
+);
+\end{verbatim}
+\end{frame}
+
+\begin{frame}{Relačný model}
+Reláciu možno vnímať ako predikát alebo ako (multi)množinu záznamov.\\[3mm]
+
+V bežných DBMS sa relácia chápe ako multimnožina:
+\begin{itemize}
+\item na poradí riadkov nezáleží;
+\item riadky v tabuľke sa môžu opakovať.
+\end{itemize}
+
+Odstránenie duplikátnych záznamov z výsledku dotazu:
+\begin{alltt}
+    SELECT \alert{DISTINCT} x, y FROM ...
+\end{alltt}
+\end{frame}
+
+\begin{frame}[fragile]{NULL}
+\begin{itemize}
+\item Špeciálna hodnota \alert{NULL} zodpovedá neznámej hodnote.
+\item Trojhodnotová logika, napr. \verb|NULL OR FALSE| je UNKNOWN (ani TRUE, ani FALSE).
+\item Test, či je hodnota NULL: \verb|x IS NULL| / \verb|x IS NOT NULL|
+\item Test, či je logický výraz UNKNOWN: \verb|(x > 0) IS UNKNOWN| (vhodné len pre debugging)
+\item Pri vytváraní tabuľky možno NULL zakázať.
+Inak treba starostlivo zvažovať, ako ovplyvní operátory a agregačné funkcie (napr. priemer hodnôt v stĺpci).
+Nehádajte, použite dokumentáciu a testujte.
+\end{itemize}
+\end{frame}
+
+\begin{frame}[fragile]{Dotazy v SQL}
+Základná štruktúra:
+\begin{verbatim}
+SELECT attribute1 AS a1, attribute2 AS a2
+FROM some_table AS t
+WHERE t.attribute2 > 10
+ORDER BY a1, a2
+\end{verbatim}
+(Všimnite si, že aliasy a1, a2 nemožno použiť vo WHERE. Kľúčové slovo AS je takmer všade nepovinné.)
+\end{frame}
+
+\begin{frame}[fragile]{Dotazy v SQL}
+\begin{itemize}
+\item Pri kľúčových slovách jazyka SQL sa nerozlišujú malé a veľké písmená,
+ale pre dáta uložené v db áno (ak to nezmeníme napr. použitím ILIKE v podmienke za WHERE).
+\item Case-sensitivity názvov tabuliek a atribútov závisí od DBMS a operačného systému.
+\item Úvodzovky pre stĺpce: \verb|"atribút s medzerou v názve"|
+\item Apostrofy pre konštantné reťazce: \verb|'reťazec'|
+\end{itemize}
+
+Bežné konvencie:
+\begin{itemize}
+\item názvy tabuliek aj atribútov lower case
+\item kľúčové slová SQL upper case
+\end{itemize}
+\end{frame}
+
+\begin{frame}[fragile]{Dotazy v SQL}
+Vo výsledku nemusia byť len pôvodné hodnoty atribútov, ale aj čosi z nich vyrátané (napr. aritmetické výrazy zložené z konštánt, funkcií implementovaných v db a hodnôt atribútov daného riadka).\\[3mm]
+
+\begin{verbatim}
+SELECT
+    concat(e.firstname,' ',e.lastname) AS ename,
+    0.8 * e.salary AS salaryAfterTax,
+    (CASE
+        WHEN e.bonus IS NULL THEN e.salary
+        ELSE e.bonus + e.salary
+    END) AS total_salary
+FROM employee AS e
+WHERE dept_id >= 20 AND lower(e.firstname) = 'john'
+ORDER BY 0.8 * e.salary
+\end{verbatim}
+\end{frame}
+
+\begin{frame}[fragile]{Zoradenie záznamov}
+Zoznam zamestnancov usporiadaný od najvyššieho platu po najnižší, pri rovnakom plate abecedne:
+\begin{alltt}
+SELECT name, salary, department
+FROM employee
+\alert{ORDER BY} salary DESC, name ASC
+\end{alltt}
+\end{frame}
+
+\begin{frame}{Join}
+\alert{Join} --- spojenie záznamov z dvoch tabuliek.\\[3mm]
+
+(INNER) JOIN je podmnožina karteziánskeho súčinu tabuliek (každý riadok s každým, dvojicu záznamov spojíme do jedného dlhšieho)
+špecifikovaná dodatočnými podmienkami na prepájanie.
+\end{frame}
+
+\begin{frame}[fragile]{Join --- karteziánsky súčin}
+\hspace*{-0.3cm}\begin{tikzpicture}[font=\fontsize{7}{8}\selectfont]
+  \matrix (emp) [dbt, anchor=north west, column 1/.style={nodes={minimum width=0.95cm}}, column 2/.style={nodes={minimum width=1.15cm}}] at (0,0) {
+    name & dept\_id \\
+    John & 10 \\
+    Thomas & 20 \\
+    Joe & 40 \\
+  };
+  \node[tcap] at (emp.north west) {employee};
+  \matrix (dep) [dbt, anchor=north west, column 1/.style={nodes={minimum width=1.15cm}}, column 2/.style={nodes={minimum width=1.50cm}}] at ($(emp.north east)+(0.3,0)$) {
+    dept\_id & name \\
+    10 & Accounting \\
+    20 & PR \\
+    30 & Development \\
+  };
+  \node[tcap] at (dep.north west) {department};
+  \node (conn) at ($(emp.east)!0.5!(dep.west)$) {$\times$};
+  \matrix (res) [dbt, anchor=north west, column 1/.style={nodes={minimum width=0.95cm}}, column 2/.style={nodes={minimum width=1.20cm}}, column 3/.style={nodes={minimum width=1.20cm}}, column 4/.style={nodes={minimum width=1.50cm}}] at ($(dep.north east)+(0.5,0)$) {
+    e.name & e.dept\_id & d.dept\_id & d.name \\
+    John & 10 & 10 & Accounting \\
+    John & 10 & 20 & PR \\
+    John & 10 & 30 & Development \\
+    Thomas & 20 & 10 & Accounting \\
+    Thomas & 20 & 20 & PR \\
+    Thomas & 20 & 30 & Development \\
+    Joe & 40 & 10 & Accounting \\
+    Joe & 40 & 20 & PR \\
+    Joe & 40 & 30 & Development \\
+  };
+  \node at ($(res.west |- conn)+(-0.25,0)$) {$=$};
+\end{tikzpicture}
+
+\begin{alltt}
+SELECT * FROM employee, department
+\end{alltt}
+\end{frame}
+
+\begin{frame}[fragile]{Join --- INNER JOIN (= JOIN)}
+\hspace*{-0.3cm}\begin{tikzpicture}[font=\fontsize{7}{8}\selectfont]
+  \matrix (emp) [dbt, anchor=north west, column 1/.style={nodes={minimum width=0.95cm}}, column 2/.style={nodes={minimum width=1.15cm}}] at (0,0) {
+    name & dept\_id \\
+    John & 10 \\
+    Thomas & 20 \\
+    Joe & 40 \\
+  };
+  \node[tcap] at (emp.north west) {employee};
+  \matrix (dep) [dbt, anchor=north west, column 1/.style={nodes={minimum width=1.15cm}}, column 2/.style={nodes={minimum width=1.50cm}}] at ($(emp.north east)+(0.5,0)$) {
+    dept\_id & name \\
+    10 & Accounting \\
+    20 & PR \\
+    30 & Development \\
+  };
+  \node[tcap] at (dep.north west) {department};
+  \node (conn) [font=\scriptsize] at ($(emp.east)!0.5!(dep.west)$) {JOIN};
+  \matrix (res) [dbt, anchor=north west, column 1/.style={nodes={minimum width=0.95cm}}, column 2/.style={nodes={minimum width=1.20cm}}, column 3/.style={nodes={minimum width=1.20cm}}, column 4/.style={nodes={minimum width=1.50cm}}] at ($(dep.north east)+(0.5,0)$) {
+    e.name & e.dept\_id & d.dept\_id & d.name \\
+    John & 10 & 10 & Accounting \\
+    \dead{John} & \dead{10} & \dead{20} & \dead{PR} \\
+    \dead{John} & \dead{10} & \dead{30} & \dead{Development} \\
+    \dead{Thomas} & \dead{20} & \dead{10} & \dead{Accounting} \\
+    Thomas & 20 & 20 & PR \\
+    \dead{Thomas} & \dead{20} & \dead{30} & \dead{Development} \\
+    \dead{Joe} & \dead{40} & \dead{10} & \dead{Accounting} \\
+    \dead{Joe} & \dead{40} & \dead{20} & \dead{PR} \\
+    \dead{Joe} & \dead{40} & \dead{30} & \dead{Development} \\
+  };
+  \node at ($(res.west |- conn)+(-0.25,0)$) {$=$};
+  \begin{scope}[shift={(1.2,-3.2)}, scale=0.75]
+    \begin{scope}
+      \clip (-0.6,0) ellipse (1.05cm and 0.5cm);
+      \fill[vennhl] (0.6,0) ellipse (1.05cm and 0.5cm);
+    \end{scope}
+    \draw (-0.6,0) ellipse (1.05cm and 0.5cm);
+    \draw (0.6,0) ellipse (1.05cm and 0.5cm);
+    \node[font=\tiny] at (-0.9,0) {table1};
+    \node[font=\tiny] at (0.9,0) {table2};
+    \node[font=\scriptsize] at (0,0.8) {INNER JOIN};
+  \end{scope}
+\end{tikzpicture}
+\vspace{-0.2em}\rule{\linewidth}{0.3pt}\vspace{-0.2em}
+
+\footnotesize
+\begin{alltt}
+SELECT * FROM employee e, department d
+WHERE e.dept\_id = d.dept\_id
+\end{alltt}
+\vspace{-0.4em}\rule{\linewidth}{0.3pt}\vspace{-0.2em}
+\begin{alltt}
+SELECT * FROM employee e
+    JOIN department d ON e.dept\_id = d.dept\_id
+\end{alltt}
+\vspace{-0.4em}\rule{\linewidth}{0.3pt}\vspace{-0.2em}
+\textbf{Pozor:} \texttt{NATURAL JOIN} spája na všetky stĺpce s rovnakým názvom, v tomto príklade teda na \texttt{name} aj \texttt{dept\_id}. Výsledok je prázdny (0 riadkov), kým \texttt{JOIN ... ON} vráti 3 riadky.
+\end{frame}
+
+\begin{frame}[fragile]{Join --- LEFT [OUTER] JOIN}
+\hspace*{-0.3cm}\begin{tikzpicture}[font=\fontsize{7}{8}\selectfont]
+  \matrix (emp) [dbt, anchor=north west, column 1/.style={nodes={minimum width=0.95cm}}, column 2/.style={nodes={minimum width=1.15cm}}] at (0,0) {
+    name & dept\_id \\
+    John & 10 \\
+    Thomas & 20 \\
+    Joe & 40 \\
+  };
+  \node[tcap] at (emp.north west) {employee};
+  \matrix (dep) [dbt, anchor=north west, column 1/.style={nodes={minimum width=1.15cm}}, column 2/.style={nodes={minimum width=1.50cm}}, row 5/.style={nodes={fill=tblhl}}] at ($(emp.north east)+(0.8,0)$) {
+    dept\_id & name \\
+    10 & Accounting \\
+    20 & PR \\
+    30 & Development \\
+    10 & Human res. \\
+  };
+  \node[tcap] at (dep.north west) {department};
+  \node (conn) [align=center, font=\scriptsize] at ($(emp.east)!0.5!(dep.west)$) {LEFT\\JOIN};
+  \matrix (res) [dbt, anchor=north west, column 1/.style={nodes={minimum width=0.95cm}}, column 2/.style={nodes={minimum width=1.20cm}}, column 3/.style={nodes={minimum width=1.20cm}}, column 4/.style={nodes={minimum width=1.50cm}}, row 3/.style={nodes={fill=tblhl}}] at ($(dep.north east)+(0.5,0)$) {
+    e.name & e.dept\_id & d.dept\_id & d.name \\
+    John & 10 & 10 & Accounting \\
+    John & 10 & 10 & Human res. \\
+    Thomas & 20 & 20 & PR \\
+    Joe & 40 & null & null \\
+  };
+  \node at ($(res.west |- conn)+(-0.25,0)$) {$=$};
+\end{tikzpicture}
+\par\vspace{1.0cm}\noindent
+\begin{minipage}[c]{0.56\linewidth}
+
+\begin{alltt}
+SELECT *
+FROM employee as e
+    LEFT JOIN department as d
+    ON e.dept\_id = d.dept\_id
+\end{alltt}
+\end{minipage}%
+\begin{minipage}[c]{0.40\linewidth}\centering
+\begin{tikzpicture}[font=\fontsize{7}{8}\selectfont]
+  \begin{scope}
+    \fill[vennhl] (-0.6,0) ellipse (1.05cm and 0.5cm);
+    \draw (-0.6,0) ellipse (1.05cm and 0.5cm);
+    \draw (0.6,0) ellipse (1.05cm and 0.5cm);
+    \node[font=\tiny] at (-0.9,0) {table1};
+    \node[font=\tiny] at (0.9,0) {table2};
+    \node[font=\scriptsize] at (0,0.8) {LEFT JOIN};
+  \end{scope}
+\end{tikzpicture}
+\end{minipage}
+\end{frame}
+
+\begin{frame}[fragile]{Join --- RIGHT [OUTER] JOIN}
+\hspace*{-0.5cm}\begin{tikzpicture}[font=\fontsize{7}{8}\selectfont]
+  \matrix (dep) [dbt, anchor=north west, column 1/.style={nodes={minimum width=1.15cm}}, column 2/.style={nodes={minimum width=1.50cm}}, row 5/.style={nodes={fill=tblhl}}] at (0,0) {
+    dept\_id & name \\
+    10 & Accounting \\
+    20 & PR \\
+    30 & Development \\
+    10 & Human res. \\
+  };
+  \node[tcap] at (dep.north west) {department};
+  \matrix (emp) [dbt, anchor=north west, column 1/.style={nodes={minimum width=0.95cm}}, column 2/.style={nodes={minimum width=1.15cm}}] at ($(dep.north east)+(0.8,0)$) {
+    name & dept\_id \\
+    John & 10 \\
+    Thomas & 20 \\
+    Joe & 40 \\
+  };
+  \node[tcap] at (emp.north west) {employee};
+  \node (conn) [align=center, font=\scriptsize] at ($(dep.east)!0.5!(emp.west)$) {RIGHT\\JOIN};
+  \matrix (res) [dbt, anchor=north west, column 1/.style={nodes={minimum width=1.20cm}}, column 2/.style={nodes={minimum width=1.50cm}}, column 3/.style={nodes={minimum width=0.95cm}}, column 4/.style={nodes={minimum width=1.20cm}}, row 3/.style={nodes={fill=tblhl}}] at ($(emp.north east)+(0.3,0)$) {
+    d.dept\_id & d.name & e.name & e.dept\_id \\
+    10 & Accounting & John & 10 \\
+    10 & Human res. & John & 10 \\
+    20 & PR & Thomas & 20 \\
+    null & null & Joe & 40 \\
+  };
+  \node at ($(res.west |- conn)+(-0.25,0)$) {$=$};
+\end{tikzpicture}
+\par\vspace{1.0cm}\noindent
+\begin{minipage}[c]{0.56\linewidth}
+
+\begin{alltt}
+SELECT *
+FROM department as d
+    RIGHT JOIN employee as e
+    ON e.dept\_id = d.dept\_id
+\end{alltt}
+\end{minipage}%
+\begin{minipage}[c]{0.40\linewidth}\centering
+\begin{tikzpicture}[font=\fontsize{7}{8}\selectfont]
+  \begin{scope}
+    \fill[vennhl] (0.6,0) ellipse (1.05cm and 0.5cm);
+    \draw (-0.6,0) ellipse (1.05cm and 0.5cm);
+    \draw (0.6,0) ellipse (1.05cm and 0.5cm);
+    \node[font=\tiny] at (-0.9,0) {table1};
+    \node[font=\tiny] at (0.9,0) {table2};
+    \node[font=\scriptsize] at (0,0.8) {RIGHT JOIN};
+  \end{scope}
+\end{tikzpicture}
+\end{minipage}
+\end{frame}
+
+\begin{frame}[fragile]{Join --- FULL [OUTER] JOIN}
+\hspace*{-0.3cm}\begin{tikzpicture}[font=\fontsize{7}{8}\selectfont]
+  \matrix (emp) [dbt, anchor=north west, column 1/.style={nodes={minimum width=0.95cm}}, column 2/.style={nodes={minimum width=1.15cm}}] at (0,0) {
+    name & dept\_id \\
+    John & 10 \\
+    Joe & 40 \\
+  };
+  \node[tcap] at (emp.north west) {employee};
+  \matrix (dep) [dbt, anchor=north west, column 1/.style={nodes={minimum width=1.15cm}}, column 2/.style={nodes={minimum width=1.50cm}}] at ($(emp.north east)+(0.8,0)$) {
+    dept\_id & name \\
+    10 & Accounting \\
+    30 & Development \\
+  };
+  \node[tcap] at (dep.north west) {department};
+  \node (conn) [align=center, font=\scriptsize] at ($(emp.east)!0.5!(dep.west)$) {FULL\\JOIN};
+  \matrix (res) [dbt, anchor=north west, column 1/.style={nodes={minimum width=0.95cm}}, column 2/.style={nodes={minimum width=1.20cm}}, column 3/.style={nodes={minimum width=1.20cm}}, column 4/.style={nodes={minimum width=1.50cm}}] at ($(dep.north east)+(0.5,0)$) {
+    e.name & e.dept\_id & d.dept\_id & d.name \\
+    John & 10 & 10 & Accounting \\
+    Joe & 40 & null & null \\
+    null & null & 30 & Development \\
+  };
+  \node at ($(res.west |- conn)+(-0.25,0)$) {$=$};
+\end{tikzpicture}
+\par\vspace{1.0cm}\noindent
+\begin{minipage}[c]{0.56\linewidth}
+
+\begin{alltt}
+SELECT *
+FROM employee e
+    FULL JOIN department d
+    ON e.dept\_id = d.dept\_id
+\end{alltt}
+\end{minipage}%
+\begin{minipage}[c]{0.40\linewidth}\centering
+\begin{tikzpicture}[font=\fontsize{7}{8}\selectfont]
+  \begin{scope}
+    \fill[vennhl] (-0.6,0) ellipse (1.05cm and 0.5cm);
+    \fill[vennhl] (0.6,0) ellipse (1.05cm and 0.5cm);
+    \draw (-0.6,0) ellipse (1.05cm and 0.5cm);
+    \draw (0.6,0) ellipse (1.05cm and 0.5cm);
+    \node[font=\tiny] at (-0.9,0) {table1};
+    \node[font=\tiny] at (0.9,0) {table2};
+    \node[font=\scriptsize] at (0,0.8) {FULL JOIN};
+  \end{scope}
+\end{tikzpicture}
+\end{minipage}
+\end{frame}
+
+\begin{frame}[fragile]{Negácia}
+Negáciu možno vyjadriť pomocou \alert{NOT EXISTS}:
+\begin{alltt}
+/* zamestnanci, ktorí nemajú podriadených */
+SELECT emp.name FROM employee \blue{emp}
+WHERE \alert{NOT EXISTS} (
+    SELECT 1 FROM employee \green{emp2}
+    WHERE \green{emp2}.superior = \blue{emp}.emp_id
+)
+\end{alltt}
+(Nezáleží na tom, ktoré stĺpce sú vymenované za SELECT vo vnútornom dotaze, pretože EXISTS len testuje, či sa tam nachádza aspoň jeden riadok.)
+\end{frame}
+
+\begin{frame}[fragile]{Negácia}
+Samotný operátor EXISTS bez NOT je v podstate JOIN.
+\begin{alltt}
+/* zamestnanci, ktorí majú podriadených */
+SELECT DISTINCT emp.name
+FROM employee \blue{emp}
+WHERE \alert{EXISTS} (
+    SELECT 1 FROM employee \green{emp2}
+    WHERE \green{emp2}.superior = \blue{emp}.emp_id
+)
+
+SELECT DISTINCT emp.name
+FROM employee \blue{emp}, employee \green{emp2}
+WHERE \green{emp2}.superior = \blue{emp}.emp_id
+\end{alltt}
+\end{frame}
+
+\begin{frame}[fragile]{Všeobecný kvantifikátor}
+Jazyk SQL nemá prostriedky na priame vyjadrenie všeobecného kvantifikátora.
+Postupovať možno v duchu
+$$
+    \forall x\ P(x)\qquad \Leftrightarrow\qquad \lnot\ \exists x\ \lnot\, P(x).
+$$
+Zamestnanci, ktorí majú najvyšší plat spomedzi \alert{všetkých} $\Leftrightarrow$ zamestnanci, ku ktorým \alert{neexistuje} zamestnanec s vyšším platom.
+\begin{alltt}
+SELECT e.name
+FROM employee e
+WHERE \blue{NOT EXISTS} (SELECT 1
+                  FROM employee e2
+                  WHERE e2.salary > e.salary)
+\end{alltt}
+\end{frame}
+
+\begin{frame}[fragile]{Vnorené dotazy (subqueries)}
+Okrem operátora EXISTS sa možno pomocou operátora IN (resp. NOT IN) pýtať na prítomnosť v množine.
+\begin{alltt}
+SELECT name
+FROM employee e
+WHERE e.dept_id \alert{IN} (SELECT dept_id
+                   FROM department d
+                   WHERE d.location = 'New York')
+\end{alltt}
+NOT IN sa optimalizuje horšie ako antijoin (NOT EXISTS), lebo kvôli NULL ho nemožno jednoducho prepísať na antijoin.
+NOT IN má tiež nevýhodu, ak sa môže vyskytnúť NULL.
+\end{frame}
+
+\begin{frame}[fragile]{Vnorené dotazy (subqueries)}
+Ak je výsledkom vnoreného dotazu tabuľka 1x1, možno ju použiť ako skalár.
+\begin{alltt}
+SELECT name
+FROM employee e
+WHERE \alert{e.dept_id =} \blue{(SELECT dept_id
+                  FROM department d
+                  WHERE d.location = 'New York')}
+\end{alltt}
+Ak by vo vnorenom dotaze vyšlo viac riadkov, dôjde k chybe; ak žiaden, výsledok je NULL.\\
+(Takýmto chybám treba čo najviac predchádzať, napr. použitím UNIQUE už pri vytváraní tabuľky.)
+\end{frame}
+
+\begin{frame}{Množinové operácie}
+Bez zachovania násobnosti riadkov (matematické množiny):
+\begin{itemize}
+\item UNION --- zjednotenie
+\item INTERSECT --- prienik
+\item EXCEPT --- rozdiel množín
+\end{itemize}
+So zachovaním násobnosti riadkov (multimnožiny):
+\begin{itemize}
+\item UNION ALL --- zjednotenie
+\item INTERSECT ALL --- prienik
+\item EXCEPT ALL --- rozdiel množín
+\end{itemize}
+\end{frame}
+
+\begin{frame}[fragile]{Množinové operácie}
+\begin{minipage}{.4\pdfpagewidth}
+\begin{alltt}
+SELECT nazov
+FROM kry
+
+\alert{UNION}
+
+SELECT nazov
+FROM stromy
+\end{alltt}
+\end{minipage}
+\begin{minipage}{.4\pdfpagewidth}
+\begin{alltt}
+SELECT nazov
+FROM dreviny
+
+\alert{EXCEPT}
+
+SELECT nazov
+FROM stromy
+\end{alltt}
+\end{minipage}
+\end{frame}
+
+\begin{frame}[fragile]{Mačky nežerúce myši --- bežná chyba}
+Mačky možno rozdeliť do 4 disjunktných skupín:
+\begin{itemize}
+\item[A.] nežerie nič
+\item[B.] žerie niečo, ale nie myši
+\item[C.] žerie myši, ale nič iné
+\item[D.] žerie myši aj niečo iné
+\end{itemize}
+$\hbox{mačky nežerúce myši} = A\cup B$
+$\hbox{mačky žerúce iné ako myši} = B\cup D$
+\\[3mm]
+
+Ak je dotaz o \uv{mačkách nežerúcich myši} a máme za WHERE \uv{$\hbox{potrava} <> \hbox{myši}$}, asi je to nesprávne.
+Pre určenie toho, či mačka žerie myši, je úplne irelevantná existencia záznamov o tom, že žerie niečo iné ako myši.
+
+(Dve množiny popísané vyššie však budú totožné, ak každá mačka žerie práve jednu potravu.)
+\end{frame}
+
+\begin{frame}[fragile]{CREATE TEMPORARY TABLE}
+Používateľ si vie sám vytvoriť dočasnú tabuľku, ktorá zanikne pri ukončení \emph{session} (odpojení od db). Voľby ON COMMIT DROP alebo ON COMMIT DELETE ROWS ho naopak viažu na koniec transakcie.
+(Výsledok dotazu sa vypočíta a uloží pri vytvorení tabuľky; pri ďalšom použití ho nepočítame nanovo.)
+\begin{alltt}
+\alert{CREATE TEMPORARY TABLE} \blue{employee_details} AS (
+    SELECT e.emp_id, e.name, e.dept_id,
+           d.name AS dept_name, d.location
+    FROM employee e, department d
+    WHERE e.dept_id = d.dept_id
+);
+SELECT * FROM \blue{employee_details} WHERE ...;
+\end{alltt}
+Hodí sa to napr. ak chceme opakovane využívať ten istý komplikovaný join.
+\end{frame}
+
+
+\begin{frame}[fragile]{VIEW}
+Prístup k dátam možno uľahčiť vytvorením pohľadu (VIEW).
+\begin{alltt}
+\alert{CREATE VIEW} \blue{employee_details} AS (
+    SELECT e.emp_id, e.name, e.dept_id,
+           d.name AS dept_name, d.location
+    FROM employee e, department d
+    WHERE e.dept_id = d.dept_id
+);
+
+SELECT * FROM \blue{employee_details} WHERE ...;
+\end{alltt}
+VIEW je permanentný objekt v db. Jeho riadky však nemusia byť materializované.
+Cez VIEW možno meniť dáta len za prísnych podmienok (podľa štandardu SQL VIEW vyberá z jednej tabuľky, bez JOIN-u, DISTINCT, GROUP BY, agregácií a UNION). VIEW s JOIN-om preto nemožno priamo meniť.
+Vkladať dáta do VIEW nikdy nie je dobrý nápad.
+\end{frame}
+
+
+\begin{frame}[fragile]{Funkcie pre jednotlivé dátové typy}
+Pri praktickej práci v SQL využívame rôzne funkcie pre špecifické dátové typy.
+\begin{itemize}
+\item dátum a čas
+\item reťazce
+\item numerické výpočty
+\item pretypovanie
+\item \dots
+\item často špecifické pre konkrétny DBMS
+\item nebudeme s nimi strácať čas, ľahko sa rieši za pochodu (dokumentácia / LLM)
+\end{itemize}
+\end{frame}
+
+
+\begin{frame}[fragile]{How to write SQL}
+Zapisujte dotazy čitateľne a zrozumiteľne.\\
+Vyhýbajte sa zápisom vedúcim k neefektívnemu výpočtu.\\[3mm]
+\begin{itemize}
+\item {\scriptsize\url{https://github.com/jarulraj/sqlcheck/blob/master/README.md#query-anti-patterns}}
+\item {\scriptsize\url{https://www.stratascratch.com/blog/best-practices-to-write-sql-queries-how-to-structure-your-code/}}
+\item {\scriptsize\url{https://www.sqlstyle.guide/}}
+\end{itemize}
+\vspace*{3mm}
+Prečítajte si tieto konvencie \emph{teraz} a nezaťažujte budúcich kolegov nevhodnými zápismi.
+(Berte ich však ako odporúčania; rôzne zdroje v niektorých veciach nesúhlasia. Zvyčajne sa pri existujúcom kóde riadime miestnymi konvenciami.)
+\end{frame}
+
+
+\begin{frame}{Literatúra}
+\begin{itemize}
+\item {\scriptsize\url{https://cs186berkeley.net/notes/note1/}}
+\item {\scriptsize\url{https://cs186berkeley.net/notes/note2/}}
+\item {\scriptsize\url{https://www.postgresqltutorial.com/} (Sections 1, 2, 3)}
+\item {\scriptsize\url{https://www.w3schools.com/sql/sql_intro.asp}}
+\item {\scriptsize\url{https://sqlbolt.com/lesson/select_queries_introduction}}
+\item {\scriptsize\url{https://www.learnsqlonline.org/}}
+\item {\scriptsize\url{https://www.postgresqltutorial.com/postgresql-views/managing-postgresql-views/}}
+\item {\scriptsize\url{https://drive.google.com/file/d/1HCq2KMZ05UvtXGe1nTqNmkwhc3X-NLI3/view}}
+\end{itemize}
+\end{frame}
+
+
+\begin{frame}{Na zamyslenie}
+\begin{itemize}
+\item Akú časovú zložitosť má výpočet DISTINCT (v závislosti od počtu riadkov za predpokladu, že sa všetky riadky zmestia do RAM)?
+\item Join tabuliek sa dá počítať len z dvoch tabuliek naraz. Ak ich máme viac, join rátame postupne
+    (predstavte si operátorový strom pre binárnu operáciu, v listoch sú pôvodné tabuľky a v koreni výsledok joinu).
+    Koľko je možných postupov na výpočet joinu $4$ tabuliek? Odhadnite počet postupov pre $n$ tabuliek.
+\item Vymyslite postup výpočtu INTERSECT. Akú má časovú zložitosť v závislosti od počtu riadkov relácií na vstupe? (Chcete lepšiu ako kvadratickú zložitosť.)
+\end{itemize}
+\end{frame}
+
+
+\begin{frame}{Úlohy: SQL}
+Databáza: \emph{osoba}(meno), \emph{pozna}(kto, koho)
+\begin{itemize}
+    \item osoby, ktoré poznajú sysľa
+    \item osoby, ktoré poznajú aspoň dve entity\\ (nemusia to byť osoby)
+    \item osoby, ktoré nepoznajú nič a nikoho
+    \item osoby, ktoré nepoznajú žiadne iné osoby
+    \item osoby, ktoré poznajú iba Jožka
+    \item osoby, ktoré pozná presne jedna osoba
+    \item osoby, ktoré poznajú všetkých známych svojich známych
+%    \item osoby, ktoré majú všetky vzťahy symetrické
+\end{itemize}
+\end{frame}
+
+
+\end{document}
+
+

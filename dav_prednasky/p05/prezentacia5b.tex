@@ -1,0 +1,489 @@
+\PassOptionsToPackage{dvipsnames}{xcolor}
+
+\documentclass[12pt]{beamer}
+\usetheme{default}
+\usecolortheme{crane}
+
+\usepackage[T1]{fontenc}
+\usepackage[slovak]{babel}
+
+\usepackage{amsmath}
+\usepackage{amsmath, amssymb}
+\usepackage{hyperref, url}
+\usepackage{graphicx}
+\usepackage{array}
+\usepackage{alltt}
+\usepackage{tikz}
+
+%\setbeamersize{text margin left=1pt,text margin right=1pt}
+\setbeamertemplate{footline}[frame number]
+\beamertemplatenavigationsymbolsempty
+
+% https://www.overleaf.com/learn/latex/Using_colours_in_LaTeX
+\def\blue#1{\textcolor{Cerulean}{#1}}
+\def\green#1{\textcolor{LimeGreen}{#1}}
+
+% database-related stuff
+\DeclareMathOperator{\join}{\bowtie}
+\DeclareMathOperator{\antijoin}{\rhd}
+
+\DeclareMathOperator{\lubi}{lubi}
+\DeclareMathOperator{\capuje}{capuje}
+\DeclareMathOperator{\navstivil}{navstivil}
+\DeclareMathOperator{\vypil}{vypil}
+\DeclareMathOperator{\answer}{answer}
+
+\title{Fyzické operátory}
+\author{Ján Mazák}
+\institute{FMFI UK Bratislava}
+\date{}
+
+
+\begin{document}
+
+\frame{\titlepage}
+
+\begin{frame}[fragile]{Disky / storage media}
+Dáta čítame a zapisujeme po blokoch (stránkach), predvolená veľkosť bloku v PostgreSQL je 8 kB.
+\begin{itemize}
+\item \alert{HDD}: náhodný prístup stojí pohyb hlavy a otáčanie platní
+\item \alert{SSD}: bez mechaniky, náhodný prístup je rýchly; zápis ide po stránkach, mazanie po väčších blokoch a bunky vydržia len niekoľko tisíc zápisov
+\item \alert{páska}: len sekvenčný prístup, na požadované miesto sa treba pretočiť; používa sa najmä na lacné zálohovanie
+\end{itemize}
+{\scriptsize\url{https://spectrum.ieee.org/why-the-future-of-data-storage-is-still-magnetic-tape}}
+\end{frame}
+
+\begin{frame}[fragile]{Disky / storage media}
+Ilustratívne hodnoty:
+\par\medskip
+\footnotesize
+{\renewcommand{\arraystretch}{1.3}
+\setlength{\tabcolsep}{4pt}
+\begin{tabular}{|l|r|r|r|r|}
+\hline
+Médium & \parbox[t]{1.8cm}{\centering\rule{0pt}{11pt}Náhodný\\prístup} & \parbox[t]{1.8cm}{\centering\rule{0pt}{11pt}Podiel na\\trhu cloudu} & \parbox[t]{1.8cm}{\centering\rule{0pt}{11pt}CapEx\\{}[USD/TB]} & \parbox[t]{1.8cm}{\centering\rule{0pt}{11pt}TCO za 5 r.\\{}[USD/TB]} \\
+\hline
+HDD & 8 ms & 82 \% & 18 & 45 \\
+SSD & 0,1 ms & 12 \% & 105 & 135 \\
+Páska & 60 000 ms & 6 \% & 6 & 14 \\
+\hline
+\end{tabular}}
+\par\medskip
+\normalsize
+SSD je pri nákupe približne 6x drahší, za 5 rokov 3x (spotreba, miesto v racku, vibrácie, výmeny).
+\par\bigskip
+\alert{Pointa: optimalizujeme pre HDD} --- minimalizovať náhodné prístupy a čítať sekvenčne po blokoch. PostgreSQL to odráža v cenovom modeli: \texttt{random\_page\_cost} = 4 oproti \texttt{seq\_page\_cost} = 1 (predvolené hodnoty).
+\end{frame}
+
+\begin{frame}[fragile]{Disky / storage media}
+Triky na urýchlenie:
+\begin{itemize}
+\item uložiť často čítané bloky do cache
+\item načítať vopred bloky, ktoré pravdepodobne bude treba v blízkej budúcnosti
+\item zbierať dáta do vyrovnávacej pamäte (buffer) a zapísať naraz väčšie množstvo
+\end{itemize}
+Toto funguje aj mimo DBMS, ale pri operáciách veľkého rozsahu sa oplatí špecificky optimalizovať\\
+(napr. \href{https://aws.amazon.com/caching/aws-caching/}{AWS Caching Solutions}).
+\end{frame}
+
+\begin{frame}[fragile]{Fyzické operátory}
+Zápis dotazu v relačnej algebre určuje postup výpočtu, ale len rámcovo.
+Treba zohľadniť aj fyzické uloženie dát.
+Každý operátor relačnej algebry má minimálne jeden zodpovedajúci fyzický operátor,
+často však niekoľko --- vyjadrujú rôzne spôsoby výpočtu.
+\bigskip
+
+Idey týkajúce sa fyzických operátorov sú užitočné všeobecne aj mimo DBMS
+--- väčšina problémov súvisiacich s veľkým množstvom dát sa dá riešiť
+skombinovaním hashovania, usporadúvania, filtrovania a vhodného výpočtu joinov.
+\end{frame}
+
+\begin{frame}[fragile]{Fyzické operátory}
+Algoritmy fyzických operátorov sa snažia minimalizovať počet diskových operácií,
+nie kroky výpočtu v operačnej pamäti.
+\bigskip
+
+Mnohé operátory sú implementované ako iterátory:
+priebežne spracúvajú záznamy zo vstupu a vytvárajú výstup (\emph{pipelining}).
+Výhoda: netreba ukladať medzivýsledky na disk.
+\end{frame}
+
+% https://docs.python.org/3.11/reference/expressions.html#yield-expressions
+\begin{frame}[fragile]{Pipelining a generátory v Pythone}
+Operátory si môžeme predstaviť ako zreťazené generátory:
+\begin{center}
+{\small
+\renewcommand{\arraystretch}{1.2}
+\begin{tabular}{>{\raggedright\arraybackslash}p{4.0cm}|>{\raggedright\arraybackslash}p{5.2cm}}
+\textbf{Operátor v DBMS} & \textbf{Generátor v Pythone} \\ \hline
+Požiadavka na ďalší riadok & \verb|next(g)| \\
+Odovzdanie jedného riadka & \verb|yield row| \\
+Pokračovanie výpočtu & Ďalší \verb|next(g)| nadviaže za \verb|yield|; lokálny stav ostáva zachovaný. \\
+Zreťazenie operátorov & Generátor číta z iného generátora.
+\end{tabular}
+}
+\end{center}
+Filter môže vydávať vyhovujúce riadky priebežne.\\[2mm]
+Triedenie je blokujúce: podobne ako \verb|sorted(g)| musí pred prvým výstupom spracovať celý vstup.
+\end{frame}
+
+\begin{frame}[fragile]{Fyzické operátory --- triedenie}
+Množstvo triedených dát rádovo prevyšuje dostupnú operačnú pamäť. Riešenie: \alert{externý merge sort}.\\
+Majme $\blue{B}$ blokov v RAM a $\green{N}$ blokov dát na disku. Dve fázy:
+\begin{enumerate}
+  \item Prečítame $\blue{B}$ blokov dát, usporiadame v RAM, zapíšeme na disk.
+      Opakujeme, kým máme dáta. Vznikne $\lceil \green{N}/\blue{B}\rceil$ usporiadaných \uv{behov} (runs).
+  \item Pre výstup rezervujeme 1 blok RAM (až sa naplní, zapíšeme ho na disk).
+      Zlúčime $\blue{B}-1$ behov tak, že pre každý rezervujeme $1$ blok
+      (keď sa načítané dáta minú, prečítame ďalší blok tohto behu z disku).
+      Pri určovaní záznamu, ktorý patrí na výstup, sa stačí pozrieť na prvý záznam každého behu.
+      Opakujeme, kým neostane jediný beh.
+\end{enumerate}
+\end{frame}
+
+\begin{frame}[fragile]{Fyzické operátory --- triedenie}
+Zložitosť externého merge sortu: vo všeobecnosti
+$$
+2\green{N} \cdot (1 + \lceil\log_{\blue{B}-1} (\lceil \green{N}/\blue{B}\rceil)\rceil),
+$$
+závisí však od dostupnej pamäti.
+\bigskip
+
+\emph{Úloha.}
+Koľko pamäti $\blue{B}$ v závislosti od $\green{N}$ treba,
+aby 2. fázu stačilo vykonať raz a nebolo potrebné ju opakovať?
+Koľko I/O operácií na blokoch sa vtedy vykoná?
+% \lceil (1 + sqrt(1 + 4B)) / 2\rceil
+% operacii je 4B
+% jeden prechod: B ≥ 317
+\end{frame}
+
+\begin{frame}[fragile]{Fyzické operátory --- triedenie}
+\emph{Úloha.}
+Relácia s $10^7$ záznamami je uložená na disku v blokoch veľkosti 8 kB.
+V každom bloku je 100 záznamov relácie. K dispozícii nie je žiaden index.
+Prenos diskového bloku (do RAM aj z RAM) trvá 1 ms.
+Bloky v RAM a na disku sú rovnako veľké.
+Na usporiadanie záznamov použijeme \alert{merge sort}.
+
+(a) Ako dlho bude trvať usporiadanie záznamov tejto relácie,
+ak máme alokovaných v RAM 200 blokov?
+% 600 000 I/O (2 prechody: 500 behov, B-1 = 199); cca 600 s = 10 min
+
+(b) Ako dlho bude trvať usporiadanie záznamov tejto relácie,
+ak máme alokovaných v RAM 2000 blokov (čiže 10x viac)?
+% 400 000 I/O operácií; cca 400 s = 6:40 min
+\end{frame}
+
+\begin{frame}[fragile]{Fyzické operátory --- join / antijoin}
+\begin{itemize}
+\item \alert{nested loop join} --- dva vnorené cykly párujú každý záznam s každým
+\item \alert{merge join} --- ak joinovacia podmienka s rovnosťou obsahuje atribúty,
+    podľa ktorých obe joinované relácie vieme usporiadať, join sa ráta ľahko podobným spôsobom,
+    ako zlučovacia fáza merge-sortu
+    (výhodné kombinovať s index scanom, ktorý produkuje záznamy už správne usporiadané)
+\item \alert{hash join} --- pri podmienke s rovnosťou: nutnou podmienkou na join
+    dvoch záznamov z jednotlivých relácií je, že patria do rovnakých bucketov
+    (nie je to však postačujúce), vieme teda join rátať bucket po buckete;
+    hashovacie buckety vytvoríme nanovo špeciálne pre účely joinu
+\end{itemize}
+\end{frame}
+
+\begin{frame}[fragile]{Fyzické operátory --- merge join}
+\begin{itemize}
+\item Predpoklad: obe relácie sú usporiadané podľa stĺpcov v podmienke, napr. \verb|R.a = S.a| (ak nie, najprv ich utriedime).
+\item Dva ukazovatele postupujú zaradom: pri rôznych hodnotách sa vpred posunie ten s menšou; pri rovnakej hodnote v oboch reláciách sa spárujú všetky riadky s touto rovnakou hodnotou.
+\item Po utriedení stačí jedno čítanie oboch relácií; pri duplicitných hodnotách treba dočasne uchovať celú skupinu riadkov s rovnakou hodnotou, aby sme ju spárovali so všetkými riadkami druhej relácie.
+\item Ak usporiadanie už máme z indexu, usporadúvanie odpadá. (Index podľa atribútu pomáha aj pri \verb|BETWEEN| a \verb|ORDER BY|, ale merge join počítame len pre rovnosť.)
+\end{itemize}
+\end{frame}
+
+\begin{frame}[fragile]{Hashovanie}
+Rozdelíme záznamy do skupín podľa hodnoty vypočítanej hashovacou funkciou.
+\begin{center}
+\begin{tikzpicture}[scale=0.8,
+  val/.style={draw,fill=cyan!25,minimum width=2.6cm,minimum height=0.5cm,font=\footnotesize},
+  bkt/.style={draw,minimum width=0.9cm,minimum height=0.45cm,font=\footnotesize},
+  hot/.style={draw=red,very thick,fill=red!15}]
+  \fill[green!12] (2.9,-5.8) rectangle (4.7,0.7);
+  \node[font=\footnotesize\bfseries] at (0,1.0) {hodnoty};
+  \node[font=\footnotesize\bfseries] at (3.8,1.0) {hash funkcia};
+  \node[font=\footnotesize\bfseries] at (7.5,1.0) {bucket};
+  \node[val] (jo) at (0,-0.4) {John Smith};
+  \node[val] (li) at (0,-1.6) {Lisa Smith};
+  \node[val] (sa) at (0,-2.8) {Sam Doe};
+  \node[val] (sd) at (0,-4.0) {Sandra Dee};
+  \node[bkt] (b0) at (7.5,-0.4) {00};
+  \node[bkt] (b1) at (7.5,-0.95) {01};
+  \node[bkt] (b2) at (7.5,-1.5) {02};
+  \node[bkt] (b3) at (7.5,-2.05) {03};
+  \node[bkt] (b4) at (7.5,-2.6) {04};
+  \node[bkt] (b5) at (7.5,-3.15) {05};
+  \node[bkt] (b6) at (7.5,-3.7) {06};
+  \node[bkt,hot] (b7) at (7.5,-4.25) {07};
+  \node[font=\footnotesize] at (7.5,-4.8) {$\vdots$};
+  \node[bkt] (b15) at (7.5,-5.35) {15};
+  \draw[->,thick] (jo.east) -- (b1.west);
+  \draw[->,thick,red] (li.east) -- (b7.west);
+  \draw[->,thick] (sa.east) -- (b4.west);
+  \draw[->,thick,red] (sd.east) -- (b7.west);
+\end{tikzpicture}
+\end{center}
+Červeným je označená \emph{kolízia}.
+\end{frame}
+
+\begin{frame}[fragile]{Hashovanie}
+\uv{Dobrá} hashovacia funkcia:
+\begin{itemize}
+\item rozdeľuje rovnomerne
+\item využíva celý obor hodnôt
+\item dá sa počítať veľmi rýchlo
+\end{itemize}
+Kolízie nám veľmi neprekážajú, použijeme spájaný zoznam.
+\bigskip
+
+(Rozdiel oproti tzv. kryptografickým hashovacím funkciám,
+kde obtiažnosť algoritmického hľadania kolízií je kľúčová.)
+\end{frame}
+
+\begin{frame}[fragile]{Hash join}
+Ku každej udalosti chceme doplniť meno používateľa.
+Ide o všeobecný problém spájania dát, nielen relačných databáz: rovnako spájame napr. dva CSV súbory.
+
+\begin{columns}[T]
+\begin{column}{0.47\textwidth}
+\begin{center}
+\textbf{Udalosti $R$}\\[2mm]
+\begin{tabular}{c|r}
+udalosť & \blue{user\_id} \\ \hline
+$e_1$ & 17 \\
+$e_2$ & 42 \\
+$e_3$ & 17 \\
+$e_4$ & 99
+\end{tabular}
+\end{center}
+\end{column}
+\begin{column}{0.47\textwidth}
+\begin{center}
+\textbf{Používatelia $S$}\\[2mm]
+\begin{tabular}{r|l}
+\blue{user\_id} & meno \\ \hline
+17 & Eva \\
+42 & Adam \\
+58 & Nina
+\end{tabular}
+\end{center}
+\end{column}
+\end{columns}
+
+\medskip
+
+{\footnotesize
+\begin{alltt}
+SELECT R.udalost, S.meno FROM udalosti R
+    JOIN pouzivatelia S ON R.\blue{user_id} = S.\blue{user_id};
+\end{alltt}
+}
+Predpokladajme, že udalostí (R) je oveľa viac než používateľov (S).
+\end{frame}
+
+\begin{frame}{Hash join --- hash buckets}
+Hašovacia funkcia priradí hodnote \alert{hash bucket}, napr.
+\[
+h(k) = k \bmod 3.
+\]
+
+\begin{center}
+\begin{tabular}{c|l}
+hash bucket & používatelia uložení v hašovacej tabuľke \\ \hline
+0 & $(42,\ \text{Adam})$ \\
+1 & $(58,\ \text{Nina})$ \\
+2 & $(17,\ \text{Eva})$
+\end{tabular}
+\end{center}
+
+\begin{itemize}
+\item Rovnaké hodnoty \blue{user\_id} vždy patria do rovnakého bucketu.
+\item Rôzne hodnoty môžu skončiť v rovnakom buckete: $h(99)=h(42)=0$.
+\end{itemize}
+\end{frame}
+
+\begin{frame}{Hash join --- build + probe}
+\begin{enumerate}
+\item \alert{Build:} vytvor hašovaciu tabuľku \alert{v RAM}.
+      Prejdi $S$ a každý riadok $s$ vlož do bucketu $h(S.\text{\textcolor{Cerulean}{user\_id}})$.
+\item \alert{Probe:} postupne čítaj riadky $R$. Pre každý $r$ vypočítaj $h(R.\text{\textcolor{Cerulean}{user\_id}})$,
+      prejdi daný bucket a vypíš všetky dvojice s rovnakou hodnotou \blue{user\_id}.
+\end{enumerate}
+
+Väčšiu reláciu $R$ prechádzame \green{iba raz}.
+
+\begin{center}
+\begin{tabular}{c|c|l}
+udalosť & prehľadáme bucket & výsledok \\ \hline
+$(e_1,17)$ & 2 & $(e_1,\ \text{Eva})$ \\
+$(e_2,42)$ & 0 & $(e_2,\ \text{Adam})$ \\
+$(e_3,17)$ & 2 & $(e_3,\ \text{Eva})$ \\
+$(e_4,99)$ & 0 & žiadna zhoda
+\end{tabular}
+\end{center}
+
+\medskip
+Hašujeme hodnoty \blue{user\_id} oboch vstupov, ale ukladáme iba $S$.
+Nepotrebujeme utriedenie ani vopred vytvorený index.
+\end{frame}
+
+\begin{frame}[fragile]{Hash join --- query plan}
+Výpis z \texttt{EXPLAIN ANALYZE} (PostgreSQL 16):
+{\tiny
+\begin{alltt}
+Hash Join (actual time=0.450..31.079 rows=200000 loops=1)
+  Hash Cond: (r.\blue{user\_id} = s.\blue{user\_id})
+  \alert{->  Seq Scan on udalosti r (actual time=0.005..8.308 rows=200000 loops=1)}
+  \green{->  Hash (actual time=0.442..0.444 rows=4000 loops=1)}
+        \green{Buckets: 4096  Batches: 1  Memory Usage: 216kB}
+        \green{->  Seq Scan on pouzivatelia s (actual time=0.002..0.194 rows=4000 loops=1)}
+\green{Execution Time: 35.806 ms}
+\end{alltt}
+}
+\begin{itemize}
+\item \green{zelená}: build --- menšia relácia $S$ sa celá zmestí do jednej dávky v pamäti;
+\item \alert{červená}: probe --- 200 000 riadkov $R$ sa prejde raz;
+\item \blue{modrá}: podmienka rovnosti na \texttt{user\_id}.
+\item Strany vyberá plánovač podľa odhadnutej veľkosti; vstupom môže byť aj výsledok filtrovania či inej operácie.
+\end{itemize}
+\end{frame}
+
+\begin{frame}{Hash join --- veľkosť výsledku}
+\begin{itemize}
+\item Výsledok môže byť veľký: jedna hodnota \texttt{user\_id} s 1000 udalosťami a 100 záznamami vytvorí $100\,000$ riadkov, preto pozor na duplicity.
+\item Avšak výsledok nezávisí od spôsobu výpočtu, preto si pri optimalizácii nevšímame napr. čas zápisu výsledku na disk.
+\item Ak sa jedna z tabuliek zmestí do RAM, oba vstupy prejdeme raz, čiže počet prečítaných diskových blokov je minimálny možný.
+\end{itemize}
+\end{frame}
+
+\begin{frame}{Hash join --- pipelining}
+\begin{itemize}
+\item Zhody možno odosielať na výstup priebežne, nečaká sa na celý výsledok.
+\item V EXPLAIN pláne: \texttt{Hash Join} vráti prvý riadok hneď po dokončení uzla \texttt{Hash}.
+\item Vstup $R$ (probe) môže byť priebežný: každý riadok sa hneď porovná s hašovacou tabuľkou.
+\item Vstup $S$ (build) je blokujúci: celý sa musí prečítať do hašovacej tabuľky, až potom vzniká prvý výstup.
+\end{itemize}
+\end{frame}
+
+\begin{frame}{Hash join --- dávky}
+\begin{itemize}
+\item Ak sa nezmestí do RAM ani jedna zo vstupných relácií, rozdelíme obe \alert{rovnakou hašovacou funkciou} na \alert{dávky} (časti vstupu, batches) uložené na disku.
+\item Dávky vyberáme z tej istej hashovacej funkcie, ale len niekoľkými bitmi hashu; vnútorné buckety v pamäti používajú iné bity.
+Počet dávok je zvyčajne malý (na rozdiel od počtu bucketov), ak by ich bolo priveľa, bloky na disku budú príliš prázdne.
+Ak by dávky použili tie isté bity ako buckety, všetky riadky v jednej dávke by mali rovnaké tieto bity a hašovacia tabuľka by využívala len časť bucketov.
+\item Rovnaká hodnota \blue{user\_id} skončí na oboch stranách v rovnakej dávke, takže žiadnu zhodu nevynecháme.
+\item Pre každú dvojicu zodpovedajúcich si dávok aplikujeme predošlý algoritmus.
+\item \alert{Cena navyše:} zápis dávok na disk a ich opätovné čítanie, teoreticky cca 3x dlhšie (v praxi na to má vplyv cache disku, operačného systému atď).
+\end{itemize}
+\end{frame}
+
+\begin{frame}[fragile]{Hash join --- query plan with batches}
+Výpis z \texttt{EXPLAIN ANALYZE} (PostgreSQL 16),\\
+ten istý join s rovnakými dátami, ale \texttt{work\_mem} = 64 kB:
+{\tiny
+\begin{alltt}
+Hash Join (actual time=0.815..48.337 rows=200000 loops=1)
+  Hash Cond: (r.\blue{user\_id} = s.\blue{user\_id})
+  \alert{->  Seq Scan on udalosti r (actual time=0.006..8.422 rows=200000 loops=1)}
+  \green{->  Hash (actual time=0.681..0.681 rows=4000 loops=1)}
+        \green{Buckets: 2048  }\alert{Batches: 8}\green{  Memory Usage: 37kB}
+        \green{->  Seq Scan on pouzivatelia s (actual time=0.004..0.227 rows=4000 loops=1)}
+\green{Execution Time: 53.129 ms}
+\end{alltt}
+}
+\begin{itemize}
+\item \alert{Batches: 8} --- tabuľka \texttt{S} sa rozdelila na 8 dávok; join trvá 53 ms oproti 36 ms bez dávok.
+\item V RAM je naraz len jedna dávka \texttt{S} ako hašovacia tabuľka,
+zodpovedajúca dávka \texttt{R} sa číta postupne.
+\end{itemize}
+{\tiny Zdroj: \url{https://www.postgresql.eu/events/pgconfeu2019/sessions/session/2669/slides/226/2019_HashJoin_In_PostgreSQL_Milan.pdf}}
+\end{frame}
+
+\begin{frame}{Hash join --- známe limity}
+\begin{itemize}
+\item \alert{Skew}: veľa riadkov s rovnakou hodnotou zostane v jednej dávke, lebo žiadne hašovanie nerozdelí rovnakú hodnotu.
+\item PostgreSQL postup pre skew: najčastejšie hodnoty sa spracujú vopred osobitne, nie v dávkach.
+\item Keď vytvárame dávky, každá dávka má vlastný výstupný buffer v pamäti. Pri veľkom počte dávok tieto buffery zaberú viac, než dovoľuje \texttt{work\_mem}.
+\end{itemize}
+\end{frame}
+
+\begin{frame}[fragile]{Fyzické operátory --- join v SQLite}
+\begin{itemize}
+\item SQLite nemá hash join. Pri joine dočasne vytvorí B-strom (index) nad join stĺpcom a v ňom vyhľadáva.
+V ideálnom prípade indexy pre obe joinované tabuľky už existujú.
+\item Ide o nested loop s vyhľadávaním, nie o merge join; každé vyhľadanie je logaritmické. (Pre málo dát nevadí.)
+\item Dôvod: SQLite beží aj na malých zariadeniach a B-strom beztak potrebuje,
+takže hashovacia tabuľka by celú knižnicu (jeden spustiteľný súbor, okolo 1 MB) zbytočne zväčšila.
+\end{itemize}
+{\tiny Zdroj: \url{https://www.sqlite.org/optoverview.html\#automatic_indexes}}
+\end{frame}
+
+\begin{frame}{Fyzické operátory --- nested loop join}
+\hbox{}
+{\small
+Počítame \alert{nested loop join} pre R a S,
+pričom vo vonkajšom cykle prechádzame cez S a vo vnútornom cez R.
+Pamäť: $M$ blokov.\\[2mm]
+Rezervujeme $1$ blok pre výstup.
+Načítame $M-2$ blokov S a $1$ blok rezervujeme na čítanie R.
+Postupne čítame všetky bloky z R, vyhodnocujeme joinovaciu podmienku a výsledky zapisujeme na výstup
+(každý blok R prečítame raz bez ohľadu na počet blokov alokovaných pre R, preto nemá význam alokovať viac ako $1$ blok).
+Ak má S ďalšie bloky, načítame $M-2$ blokov S a zopakujeme čítanie celej R po 1 bloku.
+Počet opakovaných čítaní R je $\lceil b(S) / (M-2)\rceil$.\\[2mm]
+Celková cena je $b(S) + \lceil b(S) / (M-2)\rceil\cdot b(R)$.
+Nezahŕňa zapisovanie výstupu, ale jeho veľkosť nezávisí od spôsobu výpočtu joinu.
+Oplatí sa vo vonkajšom cykle iterovať cez menšiu z R, S.
+}
+\end{frame}
+
+\begin{frame}[fragile]{Fyzické operátory --- nested loop join}
+\emph{Úloha.}
+Počítame dotaz
+\begin{alltt}
+  SELECT A.x FROM A, B WHERE A.x = B.x
+\end{alltt}
+Relácia A je na disku uložená v 100 blokoch, relácia B v 50 blokoch.
+K dispozícii v RAM je 20 blokov (bloky na disku a v RAM sú rovnako veľké).
+
+(a) Zvoľte poradie vonkajšej a vnútornej relácie, popíšte výpočet metódou \alert{nested loop join}
+a zistite počet potrebných I/O operácií.
+
+(b) Zdôvodnite, prečo je pri nested loop join optimálne použiť pre vnútornú reláciu len 1 blok
+a zvyšok RAM využiť na chunk vonkajšej relácie.
+\end{frame}
+
+
+\begin{frame}{Literatúra}
+Disky
+\begin{itemize}
+\item {\scriptsize\url{https://cs186berkeley.net/notes/note3/}}
+\item {\scriptsize\url{https://www.db-book.com/slides-dir/PDF-dir/ch12.pdf}}
+\item {\scriptsize\url{https://www.db-book.com/slides-dir/PDF-dir/ch13.pdf}}
+\end{itemize}
+\bigskip
+
+Spracovanie dotazov a operátory
+\begin{itemize}
+\item {\scriptsize\url{https://cs186berkeley.net/notes/note8/}}
+\item {\scriptsize\url{https://cs186berkeley.net/notes/note9/}}
+\item {\scriptsize\url{https://www.db-book.com/slides-dir/PDF-dir/ch15.pdf}}
+\end{itemize}
+\end{frame}
+
+
+\begin{frame}{Na zamyslenie}
+\begin{itemize}
+\item Aké fyzické operátory zodpovedajú množinovému rozdielu?
+\item Popíšte, ako možno nested loop join 4 tabuliek vypočítať bez ukladania medzivýsledkov.
+\item Rátame nested loop join pre relácie, ktoré zaberajú 1000 a 20 blokov.
+    Najmenej koľko blokov v RAM potrebuje DBMS alokovať na výpočet, aby bol počet diskových čítaní minimálny?
+\end{itemize}
+\end{frame}
+
+\end{document}

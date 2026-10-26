@@ -1,0 +1,307 @@
+\PassOptionsToPackage{dvipsnames}{xcolor}
+
+\documentclass[12pt]{beamer}
+\usetheme{default}
+\usecolortheme{crane}
+
+\usepackage[T1]{fontenc}
+\usepackage[slovak]{babel}
+
+\usepackage{amsmath}
+\usepackage{amsmath, amssymb}
+\usepackage{hyperref, url}
+\usepackage{graphicx}
+\usepackage{array}
+\usepackage{alltt}
+
+%\setbeamersize{text margin left=1pt,text margin right=1pt}
+\setbeamertemplate{footline}[frame number]
+\beamertemplatenavigationsymbolsempty
+
+% https://www.overleaf.com/learn/latex/Using_colours_in_LaTeX
+\def\blue#1{\textcolor{Cerulean}{#1}}
+\def\green#1{\textcolor{LimeGreen}{#1}}
+
+% database-related stuff
+\DeclareMathOperator{\join}{\bowtie}
+\DeclareMathOperator{\antijoin}{\rhd}
+
+\DeclareMathOperator{\lubi}{lubi}
+\DeclareMathOperator{\capuje}{capuje}
+\DeclareMathOperator{\navstivil}{navstivil}
+\DeclareMathOperator{\vypil}{vypil}
+\DeclareMathOperator{\answer}{answer}
+
+\title{Rekurzia}
+\author{Ján Mazák}
+\institute{FMFI UK Bratislava}
+\date{}
+
+
+\begin{document}
+
+\frame{\titlepage}
+
+\begin{frame}[fragile]{Rekurzia: cez CTE (Common Table Expressions)}
+\alert{WITH RECURSIVE} umožňuje rekurzívne sa odvolať na reláciu.
+\bigskip
+\begin{alltt}
+\alert{WITH RECURSIVE} cte_name AS(
+    SELECT ...  ---- non-recursive term
+  UNION [ALL]
+    SELECT ...  ---- recursive term
+)
+SELECT * FROM cte_name;
+\end{alltt}
+\end{frame}
+
+\begin{frame}[fragile]{Rekurzia}
+%\begin{minipage}{.4\pdfpagewidth}
+\begin{alltt}
+\alert{WITH RECURSIVE} t(n) AS (
+    SELECT 1
+  UNION ALL
+    SELECT n+1 FROM t \green{WHERE n < 5}
+)
+SELECT n FROM t;
+\end{alltt}
+%\end{minipage}
+\end{frame}
+
+\begin{frame}[fragile]{Výpočet rekurzie --- iterácia (seminaive evaluation)}
+Naivná evaluácia v každom kroku znova vyhodnotí rekurzívny člen nad všetkými doterajšími riadkami; seminaivná spracúva len riadky pridané v predchádzajúcom kroku.
+\begin{enumerate}
+\item Evaluate the \blue{non-recursive} term. For UNION (but not UNION ALL), discard duplicate rows.
+Include all remaining rows in the result of the recursive query, and also place them in a temporary working table.
+
+\item Evaluate the \blue{recursive} term, substituting the current contents of the working table for the recursive self-reference.
+For UNION, discard duplicate rows and rows that duplicate any previous result row.
+Include all remaining rows in the result of the recursive query, and also place them in a temporary intermediate table.
+
+\item If the intermediate table is empty, stop. Otherwise replace the working table with the intermediate table and go to 2.
+\end{enumerate}
+\end{frame}
+
+\begin{frame}[fragile]{Rekurzia}
+Rekurzívny odkaz možno použiť len raz a pre jednu reláciu (PostgreSQL).
+\alert{Nekorektné} využitie:
+%\begin{minipage}{.4\pdfpagewidth}
+\begin{alltt}
+WITH RECURSIVE t(n) AS (
+    SELECT 1
+  UNION ALL
+    (SELECT n+1 FROM \blue{t} WHERE n < 5
+        UNION ALL
+     SELECT n-1 FROM \blue{t} WHERE n < 5)
+)
+SELECT n FROM t;
+\end{alltt}
+%\end{minipage}
+\end{frame}
+
+\begin{frame}[fragile]{Rekurzia}
+Rekurzívny výpočet nemusí skončiť, zodpovednosť je na autorovi dotazu.
+\bigskip
+
+\begin{alltt}
+WITH RECURSIVE t(n) AS (
+    SELECT 1
+  UNION ALL
+    SELECT n+1 FROM t
+)
+SELECT n FROM t \green{WHERE n < 5};
+\end{alltt}
+\bigskip
+(v PostgreSQL sa takto dotaz nezastaví)
+\end{frame}
+
+\begin{frame}[fragile]{Rekurzia}
+Rekurzia zvyšuje vyjadrovaciu silu jazyka SQL.
+\begin{itemize}
+\item Rekurziou sa dá vyjadriť \blue{tranzitívny uzáver},\\ t.\,j. existencia cesty neobmedzenej dĺžky.
+\item Bez rekurzie možno vyjadriť len cestu fixnej dĺžky (pomocou opakovaného joinu).
+\end{itemize}
+\end{frame}
+
+\begin{frame}[fragile]{Prehľadávanie grafov}
+Pomocou rekurzie možno zapísať prehľadávanie stromu.\\
+Bez určenia počiatočného vrcholu ide o prehľadávanie zo všetkých vrcholov naraz; počiatočný vrchol určíme podmienkou v prvej časti (WHERE t.vFrom = \dots).\\
+\bigskip
+
+\begin{alltt}
+WITH RECURSIVE \alert{search_tree}(vFrom, vTo) AS (
+    SELECT t.vFrom, t.vTo
+    FROM tree t
+  UNION ALL
+    SELECT st.vFrom, t.vTo
+    FROM \alert{search_tree} st, tree t
+    WHERE t.vFrom = st.vTo
+)
+SELECT * FROM search_tree;
+\end{alltt}
+\end{frame}
+
+\begin{frame}[fragile]{Prehľadávanie grafov}
+\small
+Poradie riadkov vo výsledku nie je zaručené, ale usporiadaním podľa hĺbky dostaneme vrcholy v poradí \alert{prehľadávania do šírky}.
+\bigskip
+\begin{alltt}
+WITH RECURSIVE search_tree(vFrom, vTo, \alert{depth}) AS (
+    SELECT t.vFrom, t.vTo, \alert{1}
+    FROM tree t
+  UNION ALL
+    SELECT st.vFrom, t.vTo, \alert{depth + 1}
+    FROM search_tree st, tree t
+    WHERE t.vFrom = st.vTo
+)
+SELECT * FROM search_tree \alert{ORDER BY depth};
+\end{alltt}
+\end{frame}
+
+\begin{frame}[fragile]{Prehľadávanie grafov}
+Poradie riadkov vo výsledku nie je zaručené, ale usporiadaním podľa cesty dostaneme vrcholy v poradí \alert{prehľadávania do hĺbky}.
+\bigskip
+\begin{alltt}
+WITH RECURSIVE search_tree(vFrom, vTo, \alert{path}) AS (
+    SELECT t.vFrom, t.vTo, \alert{ARRAY[t.vFrom, t.vTo]}
+    FROM tree t
+  UNION ALL
+    SELECT st.vFrom, t.vTo, \alert{path || t.vTo}
+    FROM search_tree st, tree t
+    WHERE t.vFrom = st.vTo
+)
+SELECT * FROM search_tree \alert{ORDER BY path};
+\end{alltt}
+\end{frame}
+
+\begin{frame}[fragile]{Prehľadávanie grafov}
+Ak chceme ustrážiť koniec rekurzie, treba sa vyhýbať \alert{zacykleniu}.
+\bigskip
+{\small
+\begin{alltt}
+WITH RECURSIVE
+    search_graph(vFrom, vTo, depth, \green{path}, \blue{is_cycle})
+AS (
+    SELECT g.vFrom, g.vTo, 1,
+        \green{ARRAY[g.vFrom, g.vTo]}, \blue{false}
+    FROM graph g
+  UNION ALL
+    SELECT sg.vFrom, g.vTo, sg.depth + 1,
+        \green{path || g.vTo}, \blue{g.vTo = ANY(path)}
+    FROM search_graph sg, graph g
+    WHERE g.vFrom = sg.vTo AND \blue{NOT is_cycle}
+)
+SELECT * FROM search_graph ORDER BY is_cycle, path;
+\end{alltt}
+}
+\end{frame}
+
+\begin{frame}[fragile]{Prehľadávanie grafov}
+SQL po pridaní rekurzie je turingovsky úplný jazyk
+(vyjadríte v ňom riešenie pre všetky veci programovateľné v Pythone či C).
+Náčrt dôkazu a ukážka riešenia zložitých problémov v SQL, napr. ASCII Mandelbrotovej množiny:
+\href{https://stackoverflow.com/questions/900055/is-sql-or-even-tsql-turing-complete}{link}
+\\[5mm]
+\pause
+
+Neznamená to však, že túto silu musíte aj využiť.
+Napr. pri prehľadávaní grafu treba zvážiť, či nie je jednoduchšie vypýtať si celý graf
+z databázy a prehľadávanie zapísať ako program vo vhodnejšom jazyku.
+Podobne pri iných komplikovaných problémoch (napr. riešených backtrackingom).\\[5mm]
+
+Hierarchické dáta sa však v databázach občas vyskytujú, treba preto mať aspoň predstavu, ako sa s nimi vysporiadať.
+\end{frame}
+
+
+\begin{frame}{Literatúra}
+\begin{itemize}
+\item {\scriptsize\url{https://www.postgresql.org/docs/current/queries-with.html}}
+\item {\scriptsize\url{https://www.sqlite.org/lang_with.html}}
+\end{itemize}
+\end{frame}
+
+
+\begin{frame}{Na zamyslenie}
+\begin{itemize}
+\item Dá sa každá rekurzia zapísať pomocou iterácie?\\ A čo iterácia pomocou rekurzie?
+\item Vysvetlite rozdiel medzi naivnou a seminaivnou evaluáciou rekurzívneho dotazu.
+\item Vymyslite otázku, ktorá sa nedá vyjadriť v SQL ani po pridaní rekurzie.
+    (Bežne sa pýtame na záznamy, to sa vyjadriť dá, ale skúste sa pýtať na niečo iné.)
+\end{itemize}
+\end{frame}
+
+
+\begin{frame}[fragile]{Úlohy}
+Čo počíta tento dotaz?
+\bigskip
+{\small
+\begin{alltt}
+WITH RECURSIVE t(s) AS (
+    SELECT 'foo'
+  UNION ALL
+    SELECT s || 'bar' FROM t WHERE length(s) < 20
+)
+SELECT s FROM t ORDER BY s;
+\end{alltt}
+}
+\bigskip
+\pause
+Generuje reťazce v tvare \verb|foo(bar)|$^*$ postupne od najkratších.
+\end{frame}
+
+
+\begin{frame}[fragile]{Úlohy}
+Súčet čísel od 1 do 100
+\pause
+\bigskip
+{\small
+\begin{alltt}
+WITH RECURSIVE t(n) AS (
+    VALUES (1)
+  UNION ALL
+    SELECT n+1 FROM t WHERE n < 100
+)
+SELECT sum(n) FROM t;
+\end{alltt}
+}
+\end{frame}
+
+
+\begin{frame}[fragile]{Úlohy}
+Čo počíta tento dotaz?\\
+Zmení sa to, ak UNION nahradíme UNION ALL?
+\bigskip
+{\small
+\begin{alltt}
+WITH RECURSIVE t(n) AS (
+    SELECT 1
+  \blue{UNION}
+    SELECT 10-n FROM t
+)
+SELECT * FROM t ORDER BY n;
+\end{alltt}
+}
+\end{frame}
+
+
+\begin{frame}[fragile]{Úlohy}
+Skončí výpočet tohto dotazu?
+\bigskip
+{\small
+\begin{alltt}
+WITH RECURSIVE t(n) AS (
+    VALUES (1)
+  UNION ALL
+    SELECT n+1 FROM t
+)
+SELECT * FROM t LIMIT 10;
+\end{alltt}
+}
+\bigskip
+\pause
+V PostgreSQL áno, ale vo všeobecnosti to závisí od implementácie LIMIT a rekurzie.
+\end{frame}
+
+
+
+\end{document}
