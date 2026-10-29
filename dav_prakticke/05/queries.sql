@@ -28,7 +28,7 @@ Na vypis dna v tyzdni v ludsky citatelnom formate pouzite CASE statement. */
 
 /* 13. Zmazte knihy, ktore si uz pozical kazdy registrovany citatel. */
 
-/* 14. Zmazte vsetkych citatelov (okrem citatela s id 47), ktori si pozicali presne tie iste knihy ako citatel s id 47. */
+/* 14. Zmazte vsetkych citatelov (okrem citatela s id 47), ktori si pozicali presne tie iste knihy ako citatel s id 47. Predpokladajte, ze citatel s id 47 existuje, ale nemusel si nic pozicat. */
 
 /* 15. (1 point) Upravte v databaze meno kazdeho citatela, ktory mal v kazdom momente pozicanu nanajvys jednu knihu: pripiste k nemu retazec ' Read more!'.
 Navod: https://www.postgresql.org/docs/current/functions-string.html

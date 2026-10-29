@@ -1,3 +1,11 @@
+-- Sample database for the exercises. Load with: sqlite3 employee.db < employee.sql, or: psql -f employee.sql
+--
+-- The script runs in a single transaction. If DROP TABLE fails in PostgreSQL because you created
+-- views on these tables, the database stays unchanged. In that case drop those views (DROP VIEW ...)
+-- or add CASCADE to the DROP TABLE statements below (this drops the dependent views too) and rerun.
+
+BEGIN;
+
 -- Note that we drop the tables in the reverse order because
 -- we don't want to e.g. delete employees before deleting projects assigned to them.
 DROP TABLE IF EXISTS emp_projects;
@@ -35,7 +43,7 @@ CREATE TABLE emp_projects (
 );
 
 INSERT INTO department VALUES (10, 'Accounting', 'New York');
-INSERT INTO department VALUES (20, 'Research', 'Dallas');
+INSERT INTO department VALUES (20, 'Research', 'New York');
 INSERT INTO department VALUES (30, 'Sales', 'Chicago');
 
 INSERT INTO employee VALUES (11, 'King', 'president', 5000, NULL, 10);
@@ -46,6 +54,11 @@ INSERT INTO employee VALUES (15, 'MoneyMagnet', 'salesman', 2650, 14, 30);
 INSERT INTO employee VALUES (16, 'DealMaster', 'salesman', 1900, 14, 30);
 INSERT INTO employee VALUES (17, 'MrFixIt', 'clerk', 950, 14, 30);
 INSERT INTO employee VALUES (18, 'InsightNinja', 'analyst', 3000, 14, 30);
+-- Added for the window function exercise: equal salaries (ties), shared cities and gaps in employee IDs.
+INSERT INTO employee VALUES (19, 'AccountingClerk2', 'clerk', 1300, 12, 10);
+INSERT INTO employee VALUES (20, 'DealMaster2', 'salesman', 1900, 14, 30);
+INSERT INTO employee VALUES (21, 'ResearchHead', 'manager', 2400, 11, 20);
+INSERT INTO employee VALUES (24, 'ResearchAnalyst', 'analyst', 2400, 21, 20);
 
 INSERT INTO project VALUES (1, 'Enviro1');
 INSERT INTO project VALUES (2, 'Enviro2');
@@ -56,3 +69,9 @@ INSERT INTO emp_projects VALUES (17, 1);
 INSERT INTO emp_projects VALUES (14, 2);
 INSERT INTO emp_projects VALUES (14, 3);
 INSERT INTO emp_projects VALUES (18, 3);
+INSERT INTO emp_projects VALUES (15, 2);
+INSERT INTO emp_projects VALUES (15, 3);
+INSERT INTO emp_projects VALUES (16, 1);
+INSERT INTO emp_projects VALUES (20, 1);
+
+COMMIT;

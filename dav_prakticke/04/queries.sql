@@ -2,10 +2,12 @@
 /* Write and test the following queries ----------------------------------- */
 /* ------------------------------------------------------------------------ */
 
-/* You can use aggregate functions like MIN, SUM or COUNT. */
-/* You might want to add records in the tables for testing correctness of your answers. Feel free to modify 'employee.sql'. */
+/*
+    You can use aggregate functions like MIN, SUM or COUNT.
+    You might want to add records in the tables for testing correctness of your answers. Feel free to modify 'employee.sql'.
+*/
 
-/* 1. For each department, count the number of employees working there. */
+/* 1. For each department, count the number of employees working there. (Group by the department id, not by its name.) */
 
 /* 2. For each employee whose name starts with 'B', count the number of projects he participates in, and display the results only for employees working on more than 1 project. */
 
@@ -23,7 +25,7 @@
 
 /* 9. (1 point) Assume that the first 2000 of an employee's salary are taxed at 20% and any amount above 2000 is taxed at 40%. How much is paid in taxes each month by individual departments? */
 
-/* 10. How many employees (altogether) are earning between 40% and 60% of the average salary in their department? */
+/* 10. (relational algebra) How many employees (altogether) are earning between 40% and 60% of the average salary in their department? */
 
 /* 11. For each project, list all the employees participating in it, together with the ratio of their salary to the average salary in their department. */
 

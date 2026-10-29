@@ -26,8 +26,8 @@ CREATE TABLE book (
 CREATE TABLE borrowing (
 	id_b INTEGER NOT NULL,
 	id_r INTEGER NOT NULL,
-	borrowingDate DATE NOT NULL,
-	returnDate DATE
+	borrowing_date DATE NOT NULL,
+	return_date DATE
 );
 
 COMMIT;

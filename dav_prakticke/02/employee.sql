@@ -1,3 +1,11 @@
+-- Sample database for the exercises. Load with: sqlite3 employee.db < employee.sql, or: psql -f employee.sql
+--
+-- The script runs in a single transaction. If DROP TABLE fails in PostgreSQL because you created
+-- views on these tables, the database stays unchanged. In that case drop those views (DROP VIEW ...)
+-- or add CASCADE to the DROP TABLE statements below (this drops the dependent views too) and rerun.
+
+BEGIN;
+
 DROP TABLE IF EXISTS department;
 DROP TABLE IF EXISTS employee;
 
@@ -28,3 +36,11 @@ INSERT INTO employee VALUES (15, 'MoneyMagnet', 'salesman', 2650, 14, 30);
 INSERT INTO employee VALUES (16, 'DealMaster', 'salesman', 1900, 14, 30);
 INSERT INTO employee VALUES (17, 'MrFixIt', 'clerk', 950, 14, 30);
 INSERT INTO employee VALUES (18, 'InsightNinja', 'analyst', 3000, 14, 30);
+
+INSERT INTO department VALUES (40, 'Retail', 'Boston');
+
+INSERT INTO employee VALUES (19, 'SpeedySeller', 'salesman', 2200, 14, 40);
+INSERT INTO employee VALUES (20, 'TaxSleuth', 'analyst', 2100, 11, 10);
+INSERT INTO employee VALUES (21, 'DiscountDan', 'salesman', 1800, 11, 10);
+
+COMMIT;

@@ -1,3 +1,11 @@
+-- Sample database for the exercises. Load with: sqlite3 employee.db < employee.sql, or: psql -f employee.sql
+--
+-- The script runs in a single transaction. If DROP TABLE fails in PostgreSQL because you created
+-- views on these tables, the database stays unchanged. In that case drop those views (DROP VIEW ...)
+-- or add CASCADE to the DROP TABLE statements below (this drops the dependent views too) and rerun.
+
+BEGIN;
+
 -- Note that we drop the tables in the reverse order because
 -- we don't want to e.g. delete employees before deleting projects assigned to them.
 DROP TABLE IF EXISTS emp_projects;
@@ -56,3 +64,8 @@ INSERT INTO emp_projects VALUES (17, 1);
 INSERT INTO emp_projects VALUES (14, 2);
 INSERT INTO emp_projects VALUES (14, 3);
 INSERT INTO emp_projects VALUES (18, 3);
+INSERT INTO emp_projects VALUES (15, 2);
+INSERT INTO emp_projects VALUES (15, 3);
+INSERT INTO emp_projects VALUES (16, 1);
+
+COMMIT;
