@@ -10,7 +10,7 @@ Na vypis dna v tyzdni v ludsky citatelnom formate pouzite CASE statement. */
 
 /*  5. Ku kazdemu citatelovi vypiste nazov prvej knihy, ktoru si pozical, alebo null, ak si nikdy nepozical nic. (Ak si v ten den pozical viac knih, vypiste vsetky.) */
 
-/*  6. Pre kazdu vypozicku vypiste meno citatela, nazov knihy, poradie vypozicky daneho citatela (1 = prva) a pocet dni od jeho predchadzajucej vypozicky (NULL pre prvu). Ak ma citatel dve vypozicky v ten isty den, ich poradie medzi sebou je lubovolne. Tip: hodia sa window functions (napr. ROW_NUMBER, LAG). */
+/*  6. Pre kazdu vypozicku vypiste meno citatela, nazov knihy, poradie vypozicky daneho citatela (1 = prva) a pocet dni od jeho predchadzajucej vypozicky (NULL pre prvu). Ak ma citatel dve vypozicky v ten isty den, ich poradie medzi sebou je lubovolne. Tip: vypozicky kazdeho citatela ocislujte pomocou ROW_NUMBER; predchadzajucu vypozicku potom najdete joinom vysledku so sebou samym (rovnaky citatel, poradie o 1 mensie). */
 
 /*  7. Pre kazdy mesiac, v ktorom bola aspon jedna vypozicka, vypiste pocet vypoziciek v tom mesiaci a kumulativny pocet vypoziciek od zaciatku. Tip: kumulativny pocet sa da ziskat pomocou window function. */
 
