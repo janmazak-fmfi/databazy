@@ -97,28 +97,30 @@ FROM employee;
 \end{alltt}
 \end{frame}
 
-\begin{frame}[fragile]{Window functions: row\_number()}
+\begin{frame}[fragile]{Window functions: dense\_rank(), row\_number()}
 \footnotesize
 \begin{alltt}
-SELECT dept_id, name, salary,
-       rank() OVER \blue{w}, \green{row_number()} OVER \blue{w}
+SELECT name, salary, rank() OVER \blue{w},
+       \green{dense_rank()} OVER \blue{w}, \green{row_number()} OVER \blue{w}
 FROM employee
 WINDOW \blue{w} AS (PARTITION BY dept_id ORDER BY salary DESC);
 \end{alltt}
 \begin{alltt}
 \blue{
- dept_id |  name  | salary  | rank | row_number
--{}-{}-{}-{}-{}-{}-{}-{}-{}+-{}-{}-{}-{}-{}-{}-{}-{}+-{}-{}-{}-{}-{}-{}-{}-{}-{}+-{}-{}-{}-{}-{}-{}+-{}-{}-{}-{}-{}-{}-{}-{}-{}-{}-{}
-      20 | Ford   | 3000.00 |    1 |          1
-      20 | Scott  | 3000.00 |    1 |          \alert{2}
-      20 | Jones  | 2975.00 |    3 |          3
-      20 | Adams  | 1100.00 |    4 |          4
+  name  | salary  | rank | dense_rank | row_number
+-{}-{}-{}-{}-{}-{}-{}-{}+-{}-{}-{}-{}-{}-{}-{}-{}-{}+-{}-{}-{}-{}-{}-{}+-{}-{}-{}-{}-{}-{}-{}-{}-{}-{}-{}-{}+-{}-{}-{}-{}-{}-{}-{}-{}-{}-{}-{}
+ Ford   | 3000.00 |    1 |          1 |          1
+ Scott  | 3000.00 |    1 |          1 |          \alert{2}
+ Jones  | 2975.00 |    3 |          \alert{2} |          3
+ Adams  | 1100.00 |    4 |          3 |          4
+ ...
 }
 \end{alltt}
+\scriptsize
 \begin{itemize}
-\item row\_number() čísluje riadky partície 1, 2, 3, \dots{} aj pri zhode.
-\item Poradie zhodných riadkov je ľubovoľné (Ford a Scott sa môžu vymeniť);
-  pre deterministický výsledok: ORDER BY salary DESC, emp\_id.
+\item dense\_rank(): po zhode nevynecháva čísla.
+\item row\_number(): čísluje 1, 2, 3, \dots{} aj pri zhode; poradie zhodných riadkov
+  je ľubovoľné, deterministicky: ORDER BY salary DESC, emp\_id.
 \end{itemize}
 \end{frame}
 
@@ -127,7 +129,7 @@ Funkcie, ktoré možno použiť ako window functions:
 \begin{itemize}
 \item bežné agregačné funkcie\\
     (môžu sa však správať trochu odlišne!)
-\item rank(), row\_number(), percent\_rank()
+\item rank(), dense\_rank(), row\_number(), percent\_rank()
 \item nth\_value() --- element in the n-th row of the window
 \item \dots
 \end{itemize}
