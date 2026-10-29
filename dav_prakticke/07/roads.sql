@@ -1,3 +1,9 @@
+-- Sample database for the exercises. Load with: psql -f roads.sql
+--
+-- The script runs in a single transaction. If DROP TABLE fails in PostgreSQL because you created
+-- views on these tables, the database stays unchanged. In that case drop those views (DROP VIEW ...)
+-- or add CASCADE to the DROP TABLE statements below (this drops the dependent views too) and rerun.
+
 BEGIN;
 
 DROP TABLE IF EXISTS city;
@@ -30,6 +36,8 @@ INSERT INTO road VALUES (1, 3, 765.56);
 INSERT INTO road VALUES (2, 5, 279.76);
 INSERT INTO road VALUES (3, 5, 252.56);
 INSERT INTO road VALUES (3, 4, 54.88);
+-- One additional road creates a cycle: Roma - Wien - Bratislava - Roma.
+INSERT INTO road VALUES (1, 4, 1100.00);
 INSERT INTO road VALUES (6, 7, 4525.34);
 INSERT INTO road VALUES (7, 8, 5818.52);
 INSERT INTO road VALUES (8, 9, 4155.44);

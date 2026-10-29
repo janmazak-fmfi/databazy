@@ -8,7 +8,7 @@ Getting a query plan in SQL:
 
 ## Example query plans
 
-The examples use the schema and sample data from [exercise 4](../04/employee.sql), followed by `ANALYZE`. The plans below were obtained with PostgreSQL 16; plans and cost estimates depend on the data, statistics, and database version.
+The examples use the schema and sample data from [employee.sql](employee.sql) (the same as in exercise 4), followed by `ANALYZE`. The plans below were obtained with PostgreSQL 16; plans and cost estimates depend on the data, statistics, and database version.
 
 ```
 EXPLAIN SELECT * FROM employee e
