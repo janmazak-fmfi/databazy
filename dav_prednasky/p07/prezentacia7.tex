@@ -743,19 +743,36 @@ Tie sú binárne, preto v BCNF. FZ ostali zachované.
 \end{frame}
 
 \begin{frame}[fragile]{Normalizácia}
-Uvažujme reláciu R(Student, Course, Teacher). Vieme, že:
+Pridaním ďalšej FZ sa môže normálna forma relácie \alert{zlepšiť}!
+\bigskip
+
+Uvažujme rovnakú reláciu $R(Z, P, A)$ s FZ $Z\fz P$, $P\fz A$,
+a pridajme predpoklad, že na každej adrese pracuje jediný zamestnanec:
+$$A\fz Z.$$
+\pause
+\bigskip
+
+Potom sú kľúčmi všetky tri atribúty $Z$, $P$ aj $A$ (každý z nich určuje zvyšné dva).
+Ľavá strana každej netriviálnej FZ je preto nadkľúčom, takže $R$ je rovno v \green{BCNF} (bez dekompozície).
+\end{frame}
+
+\begin{frame}[fragile]{Normalizácia}
+Uvažujme reláciu R(Student, Course, Teacher, Room):
+{\small
 \begin{itemize}
 \item Študent môže študovať viacero predmetov.
 \item V rámci jedného predmetu má študent jedného učiteľa.
 \item Predmet môže mať viac učiteľov,\\ avšak každý učiteľ učí len jeden predmet.
+\item Každý predmet má pridelenú jedinú miestnosť (Room).
 \end{itemize}
+}
 
-\bigskip
+\medskip
 \begin{enumerate}
 \item Nájdite všetky platné netriviálne FZ.
 \item Nájdite všetky kľúče tejto relácie.
-\item Zistite najvyššiu normálnu formu, v ktorej je táto relácia.
-\item Bezstratovo ju dekomponujte do BCNF, ak treba.\\
+\item Zdôvodnite, prečo táto relácia nie je v 3NF.
+\item Bezstratovo ju dekomponujte do BCNF.\\
 Zachovajú sa FZ? Ak nie, ako kontrolovať tie porušené?
 \end{enumerate}
 \end{frame}
@@ -1055,14 +1072,14 @@ Atribúty:\\[3mm]
 \item Autor
 \item NárodnosťAutora
 \item Formát
-\item Cena (odporúčaná)
+\item Cena (pre formát)
 \end{itemize}
 \end{minipage}
 \begin{minipage}{.4\pdfpagewidth}
 \scriptsize
 \begin{itemize}
 \item Témy (zoznam tém)
-\item PočetStrán
+\item PočetStrán (pre formát)
 \item Vydavateľstvo
 \item KontaktVydavateľstvo
 \item Žáner
@@ -1072,7 +1089,7 @@ Atribúty:\\[3mm]
 \\[3mm]
 Predpoklady:
 {
-\footnotesize
+\scriptsize
 \begin{itemize}
 \item Každú knihu napísal jediný autor a má jediný žáner.
 \item Knihu identifikuje dvojica (Názov, Autor), oplatí sa však pridať umelé idDiela, aby sme mali jednoduchý kľúč.
@@ -1080,7 +1097,10 @@ Predpoklady:
     Môže však byť vo viacerých formátoch; ISBN sa prideľuje osobitne pre jednotlivé formáty (papier, ePub, PDF\dots).
 \end{itemize}
 }
-Identifikujte FZ a bezstratovo dekomponujte do BCNF.
+{
+\small
+\alert{Upravte do 1NF, určte FZ, bezstratovo dekomponujte do BCNF.}
+}
 \end{frame}
 
 
