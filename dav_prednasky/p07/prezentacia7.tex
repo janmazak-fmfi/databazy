@@ -110,7 +110,7 @@ Pre projekty potrebujeme vedieť názov, rozpočet, zoznam ich zamestnancov a ve
 Nakreslite entitno-relačný diagram:
 \begin{itemize}
 \item Entity sú obdĺžniky, hlavička je názov entity a pod ňou je zoznam atribútov s dátovým typom oddeleným dvojbodkou.
-\item Vzťah medzi entitami zobrazíme neorientovanou hranou medzi obdĺžnikmi, ku ktorému pripíšeme,
+\item Vzťah medzi entitami zobrazíme neorientovanou hranou medzi obdĺžnikmi, ku ktorej pripíšeme,
 či ide o one-to-one (1:1), one-to-many (1:N), many-to-many (M:N)
 (pozor na poradie; označenia 1, M, N sa bežne pripisujú ku koncom hrán).
 \end{itemize}
@@ -150,7 +150,7 @@ Pre ternárny vzťah vieme rovno pridať reláciu a stačí správne popísať n
 
 \begin{frame}[fragile]{Terminológia: čo je to \alert{atribút}?}
 \begin{itemize}
-\item V \uv{matematickom} databázovom relačnom modeli je to \alert{\uv{atomický} element}, nad ktorým vytvárame relácie (ako množiny atribútov).
+\item V \uv{matematickom} databázovom relačnom modeli je to \alert{\uv{atomický} element}, nad ktorým vytvárame schémy relácií (množiny atribútov).
 \item V SQL (čo je praktická implementácia \uv{matematického} modelu) je to \alert{stĺpec tabuľky};
   stĺpce jednotlivých tabuliek sú však nezávislé a na priblíženie sa matematickému modelu slúžia cudzie kľúče.
 \item V ERM je to \alert{vlastnosť entity} (a nesúvisí so vzťahmi medzi entitami, hoci jedno aj druhé musíme v SQL reprezentovať stĺpcami).
@@ -424,17 +424,160 @@ Aké kľúče má relácia\\
 Pre závislosť $AB\fz C$ spravíme tabuľku
 \begin{alltt}
       CREATE TABLE t (
-            A <data_type_of_A> NOT NULL,
-            B <data_type_of_B> NOT NULL,
+            A <data_type_of_A> \alert{NOT NULL},
+            B <data_type_of_B> \alert{NOT NULL},
             C <data_type_of_C>,
             \alert{UNIQUE(A, B)}
       );
 \end{alltt}
-Keďže sa do nej nedajú vložiť záznamy $(a_1, b_1, c_1)$ a $(a_1, b_1, c_2)$, platí aj požadovaná funkčná závislosť.
+Keďže sa do nej nedajú vložiť záznamy $(a_1, b_1, c_1)$ a $(a_1, b_1, c_2)$, platí aj požadovaná funkčná závislosť.\\
+(Bez \texttt{NOT NULL} by to neplatilo: v SQL \texttt{UNIQUE} štandardne povoľuje viacero hodnôt \texttt{NULL}.)
 
-\bigskip
+\medskip
 Keby sme mali v jednej tabuľke veľa FZ, ich vynucovanie pomocou UNIQUE môže navzájom kolidovať.
 To tiež naznačuje vhodnosť rozdelenia veľkej tabuľky na malé (dekompozícia relácie).
+\end{frame}
+
+\begin{frame}[fragile]{Funkčné závislosti v SQL}
+Aké funkčné závislosti musia platiť pre nasledujúcu reláciu? (Hľadáme závislosti vynútené SQL kódom.)
+\begin{alltt}
+    CREATE TABLE customers (
+        id        integer PRIMARY KEY,     ---- I
+        address   text NOT NULL,           ---- A
+        name      text NOT NULL,           ---- N
+        email     text NOT NULL UNIQUE,    ---- E
+        phone     text NOT NULL UNIQUE,    ---- P
+        UNIQUE(name, address)
+    );
+\end{alltt}
+\pause
+\begin{itemize}
+\item PRIMARY KEY: $I\fz ANEP$
+\item UNIQUE: $E\fz I$, $P\fz I$, $AN\fz I$
+\item Z významu stĺpcov to vyzerá tak, že iné FZ (okrem tých, čo vyplývajú z uvedených) už medzi týmito atribútmi nie sú (a nechceme ich v SQL vynucovať).
+\end{itemize}
+\end{frame}
+
+
+\begin{frame}[fragile]{Foreign keys}
+Atribút obsiahnutý v niekoľkých reláciách:
+\begin{itemize}
+\item V matematickom relačnom modeli vždy \uv{ten istý}.
+\item V SQL rovnako pomenované stĺpce v rôznych tabuľkách nemajú medzi sebou žiaden vzťah.
+\end{itemize}
+\alert{Foreign keys} (cudzie kľúče) --- mechanizmus na zabezpečenie súladu hodnôt toho istého atribútu v rôznych tabuľkách (referenčná integrita).
+\end{frame}
+
+\begin{frame}[fragile]{Foreign keys}
+\begin{alltt}
+CREATE TABLE ta (
+  a1 integer \alert{REFERENCES tb},
+  a2 integer,
+  a3 integer,
+  \alert{FOREIGN KEY (a2, a3) REFERENCES tc (c1, c2)}
+);
+\end{alltt}
+Cudzie kľúče možno pomenovať (ľahšie sa tak identifikuje dôvod zamietnutia operácie):
+{\scriptsize
+\begin{alltt}
+  CONSTRAINT fk_name1 FOREIGN KEY (a1) REFERENCES tb (b1)
+  CONSTRAINT fk_name2 FOREIGN KEY (a2, a3) REFERENCES tc (c1, c2)
+\end{alltt}
+}
+\end{frame}
+
+\begin{frame}[fragile]{Foreign keys}
+\hbox{}{\small
+\begin{alltt}
+CREATE TABLE products (
+  product_no integer PRIMARY KEY,
+  price numeric
+);
+CREATE TABLE orders (
+  order_id integer PRIMARY KEY
+);
+CREATE TABLE order_items (
+  order_id integer \alert{REFERENCES orders} \blue{ON DELETE CASCADE},
+  product_no integer \alert{REFERENCES products}
+      \blue{ON DELETE RESTRICT ON UPDATE CASCADE},
+  quantity integer,
+  PRIMARY KEY (product_no, order_id)
+);
+\end{alltt}
+}
+\end{frame}
+
+\begin{frame}[fragile]{Foreign keys}
+Možnosti pre \blue{ON DELETE}
+\begin{itemize}
+\item \alert{CASCADE} -- zmaže riadok, ktorý sa odkazoval na mazaný riadok
+\item \alert{RESTRICT} -- nezmaže nič, operácia DELETE skončí s chybou
+\item SET NULL -- nastaví odkaz na NULL\\ (zlyhá pre NOT NULL stĺpce)
+\item SET DEFAULT -- nastaví hodnotu odkazu na defaultnú
+(zlyhá, ak takto vznikne nekorektný odkaz)
+\item NO ACTION -- toto je default; chyba sa ohlási na konci príkazu DELETE (resp. UPDATE), ak však je FK DEFERRABLE INITIALLY DEFERRED, až pri COMMIT (RESTRICT sa neodkladá).
+\end{itemize}
+\end{frame}
+
+\begin{frame}[fragile]{Foreign keys}
+Možnosti pre \blue{ON UPDATE}
+\begin{itemize}
+\item \alert{CASCADE} -- zmení odkazujúcu hodnotu na novú hodnotu odkazovanej
+(zachová väzbu medzi riadkami)
+\item \alert{RESTRICT} -- zabráni zmene v odkazovanej tabuľke, UPDATE ihneď skončí s chybou
+\item SET NULL -- nastaví odkaz na NULL (väzba zanikne)
+\item SET DEFAULT -- nastaví hodnotu odkazu na defaultnú
+(zlyhá, ak takto vznikne nekorektný odkaz)
+\item NO ACTION -- toto je default; chyba sa ohlási na konci príkazu UPDATE, ak však je FK DEFERRABLE INITIALLY DEFERRED, až pri COMMIT (RESTRICT sa neodkladá).
+\end{itemize}
+\end{frame}
+
+\begin{frame}[fragile]{Foreign keys}
+Kedy sa vyhodnocuje platnosť odkazu?
+\begin{itemize}
+\item \alert{DEFERRED} -- až pri commite transakcie
+\item \alert{IMMEDIATE} -- okamžite po vykonaní operácie
+\end{itemize}
+\pause
+Možnosti pri definícii cudzieho kľúča:
+\begin{itemize}
+\item \green{NOT DEFERRABLE} -- vždy okamžité vyhodnocovanie
+\item \green{DEFERRABLE INITIALLY IMMEDIATE} -- v rámci tx možno zvoliť, kedy vyhodnocovať, default je ihneď
+\item \green{DEFERRABLE INITIALLY DEFERRED} -- v rámci tx možno zvoliť, kedy vyhodnocovať, default je commit
+\end{itemize}
+\end{frame}
+
+\begin{frame}[fragile]{Mazanie záznamov}
+Pri nastavení ON DELETE treba postupovať citlivo.
+\\[2mm]
+Použitie CASCADE vedie k implicitnému mazaniu, ktorého si autor dotazu nemusí byť vedomý.
+Napríklad pri mazaní objednávky je jasné, že bude zmazaný aj zoznam produktov z tejto objednávky,
+ale pri mazaní učiteľa nechceme prísť o dáta z hodnotenia študentov, ktoré sú naňho naviazané, ani o materiály, ktoré pre školu vytvoril.
+\\[2mm]
+Použitie RESTRICT spraví mazanie explicitným.
+Klientsky program si napr. môže vyžiadať zoznam mazaných objektov a nechať ho potvrdiť používateľom,
+alebo zmeniť naviazanie cez cudzie kľúče na nezmazané záznamy.
+\end{frame}
+
+\begin{frame}[fragile]{Mazanie záznamov}
+Nevýhody ON DELETE CASCADE:
+\begin{itemize}
+\item Nezamýšľaná strata záznamov.
+\item Náročnejšie debugovanie --- ťažšie logovanie či pátranie po príčine straty dát.
+\item Pokles výkonu pri masívnom mazaní --- tabuľka, z ktorej sa maže veľa vecí, ostane pre ostatné transakcie de facto zablokovaná.
+Mazanie môže trvať dlhé minúty a autor DELETE to nemusí vedieť.
+\item Bezpečnostné problémy, napr. ak máme prístupové práva na úrovni jednotlivých záznamov.
+\end{itemize}
+\end{frame}
+
+\begin{frame}[fragile]{Mazanie záznamov}
+Ďalšie možnosti:
+\begin{itemize}
+\item {\emph{Soft delete}}: Záznamy len označíme (v extra stĺpci) ako zmazané, ale ponecháme v databáze. Cez trigger sa dá spraviť cascade.
+Nevýhoda: vo všetkých dotazoch potom musíme filtrovať cez pridaný flag.
+\item Tabuľka historických hodnôt: zmazané záznamy presúvame (napr. trigger) do inej tabuľky a pripíšeme k nim obdobie platnosti.
+\item Temporal tables (SQL Server).
+\end{itemize}
 \end{frame}
 
 \begin{frame}[fragile]{Dekompozícia relácií}
@@ -529,7 +672,7 @@ V~praxi sa možno zaobísť aj bez znalosti teórie o nich.
 \end{frame}
 
 \begin{frame}[fragile]{BCNF}
-Relácia $r$ je v BCNF, ak \green{ľavá strana každej netriviálnej FZ je nadkľúč} $r$.
+Relácia $r$ je v BCNF, ak \green{ľavá strana každej netriviálnej FZ je nadkľúčom} $r$.
 
 \bigskip
 Problémy:
@@ -548,8 +691,7 @@ ale vyšlo to až na druhý pokus.)
 \end{frame}
 
 \begin{frame}[fragile]{3NF}
-Relácia $r$ je v 3NF, ak \green{ľavá strana každej netriviálnej FZ je nadkľúč} $r$
-alebo každý atribút na pravej strane je súčasťou nejakého kľúča.
+Relácia $r$ je v 3NF, ak pre každú netriviálnu FZ $X \fz Y$ s disjunktnými stranami ($X \cap Y = \emptyset$) platí, že \green{$X$ je nadkľúčom} $r$ alebo \alert{každý atribút z $Y$ je súčasťou nejakého kľúča}.
 
 \bigskip
 Vlastnosti:
@@ -702,9 +844,9 @@ V relácii s atribútmi id\alert{F}aktúry, id\blue{O}bjednávky, id\blue{Z}áka
 O\fz Z, \quad OP\fz M, \quad P\fz C, \quad \alert{F\fz O}
 \end{eqnarray*}
 Pridanie faktúry vytvorí problémy, ktoré sa nedajú riešiť len cez FZ. Dva rôzne prípady:\\[2mm]
-A. Produkty z objednávky sa rozdelia do viacerých faktúr, každý na presne jednej faktúre.\\[2mm]
-B. Faktúra sa vždy vzťahuje na všetky produkty objednávky, ale môže ich byť viac
-(chybne vystavené $F$, ktoré už evidujú zákazníci či daňový úrad, preto ich nemožno zmazať).\\[2mm]
+\emph{\green{A. Produkty z objednávky sa rozdelia do viacerých faktúr}, každý na presne jednej faktúre.}\\[2mm]
+\emph{\blue{B. Faktúra sa vždy vzťahuje na všetky produkty objednávky}, ale môže ich byť viac
+(chybne vystavené $F$, ktoré už evidujú zákazníci či daňový úrad, preto ich nemožno zmazať).}\\[2mm]
 \end{frame}
 
 \begin{frame}[fragile]{Normalizácia}
@@ -715,6 +857,7 @@ V oboch prípadoch dáva zmysel oddeliť $OZ$, $PC$ a $OPM$.
 \bigskip
 
 Rozdiel sa prejaví pri dekompozícii $FOP$. Tá nie je v 3NF, lebo jediný kľúč je $FP$ a platí $F\fz O$, preto s ňou v oboch prípadoch potrebujeme niečo spraviť.
+(Napr. ak upravíme predpoklady o reálnom svete, môže pribudnúť ďalšia FZ, vďaka čomu sa $FOP$ dostane do 3NF aj bez dekompozície, viď \green{prípad A} nižšie.)
 \bigskip
 
 Pre $FOP$ prichádza do úvahy jediná bezstratová dekompozícia $FP$, $FO$ (prečo?).
@@ -722,7 +865,7 @@ Pre $FOP$ prichádza do úvahy jediná bezstratová dekompozícia $FP$, $FO$ (pr
 
 \begin{frame}[fragile]{Normalizácia}
 \begin{small}
-A. Produkty z objednávky sa rozdelia do viacerých faktúr, každý na presne jednej faktúre.
+\emph{\green{A. Produkty z objednávky sa rozdelia do viacerých faktúr}, každý na presne jednej faktúre.}
 \bigskip
 
 Platí tu FZ $OP\fz F$, ktorú stratíme pri dekompozícii $FP$, $FO$.
@@ -741,7 +884,7 @@ lebo to nemá významnú pridanú hodnotu a zvyšuje riziko chýb (jednoduchšie
 \end{frame}
 
 \begin{frame}[fragile]{Normalizácia}
-B. Faktúra sa vždy vzťahuje na všetky produkty objednávky.
+\emph{\blue{B. Faktúra sa vždy vzťahuje na všetky produkty objednávky.}}
 \bigskip
 
 Dekompozícia $FOP$ do $FP$, $FO$ vyriešila všetky problémy, ktoré sa dajú popísať cez FZ.
@@ -749,11 +892,22 @@ Lenže čomu v realite zodpovedá \alert{$FP$}?
 \bigskip
 
 Problém: K $F$ je jedna $O$, a na tej sú $P$. Vzťah medzi $F$ a $P$ je tým úplne určený a nemusíme ho evidovať v tabuľke $FP$.
-Tabuľku $FP$ môžeme úplne zahodiť, lebo je redundantná: ak obsahuje korektné hodnoty, nemá vplyv na výsledok joinu $FO$ a $OPM$.
+Tabuľku $FP$ môžeme úplne zahodiť, lebo je redundantná: ak obsahuje korektné hodnoty, platí
+$$FP = \pi_{F,P}(FO \join OPM),$$
+a teda nemá vplyv na výsledok joinu $FO$ a $OPM$.
+\end{frame}
+
+\begin{frame}[fragile]{Normalizácia}
+\emph{\blue{B. Faktúra sa vždy vzťahuje na všetky produkty objednávky.}}
 \bigskip
 
-To však FZ \uv{nevidia}. V tabuľke $FOP$ platí tzv. multizávislosť $F \twoheadrightarrow P$: množina $P$ k fixnej $F$ je vždy rovnaká bez ohľadu na hodnotu $O$.
-(FZ je špeciálnym prípadom multizávislosti s jednoprvkovou množinou.)
+Redundanciu $FP$ však FZ \uv{nevidia}. V tabuľke $FOP$ platí tzv. multizávislosť $O \twoheadrightarrow P$: množina $P$ k fixnej $O$ je vždy rovnaká bez ohľadu na hodnotu $F$.
+\bigskip
+
+4NF by preto $FOP$ dekomponovala na $FO$ a $OP$ (nie $FP$). Keďže $OP$ je už obsiahnuté v $OPM$, tabuľka $FP$ vôbec nevznikne.
+\bigskip
+
+{\small Pozorovanie: Aj korektná dekompozícia (napr. do BCNF) môže pri troche smoly skončiť s redundantnými tabuľkami ako v príklade vyššie; na záver preto treba ešte odstrániť tabuľky, ktoré sú podmnožinou iných alebo nenesú žiadnu ďalšiu informáciu.}
 \end{frame}
 
 \begin{frame}[fragile]{Vyššie normálne formy (informatívne)}
@@ -786,7 +940,10 @@ Relácia je v 4NF, ak v každej netriviálnej MVD $X \twoheadrightarrow Y$ je $X
 
 \bigskip
 MVD odstraňujeme tiež dekompozíciou, napr. $R$ nahradíme $R_1 = (emp\_id, project)$ a $R_2 = (emp\_id, skill)$.
-Zbytočnosť tabuľky FP ukáže až 5NF.
+Podobne pre $FOP$ v \blue{prípade B} vyššie: $O \twoheadrightarrow P$ v 4NF vedie k dekompozícii na $FO$ a $OP$ (už v $OPM$), takže $FP$ nevznikne.
+\bigskip
+
+{\small \alert{5NF}: rieši zložitejšie \emph{join dependencies}, kde je bezstratový až join 3 a viac tabuliek (žiadna dekompozícia na 2 tabuľky nie je bezstratová).}
 \end{frame}
 
 \begin{frame}[fragile]{Primary keys}
@@ -844,147 +1001,6 @@ lebo každá množina atribútov, z ktorej \uv{vyplýva} $I$, je nadkľúčom (k
 \end{itemize}
 \end{frame}
 
-\begin{frame}[fragile]{Funkčné závislosti v SQL}
-Aké funkčné závislosti musia platiť pre nasledujúcu reláciu? (Hľadáme závislosti vynútené SQL kódom.)
-\begin{alltt}
-    CREATE TABLE customers (
-        id        integer PRIMARY KEY,     ---- I
-        address   text NOT NULL,           ---- A
-        name      text NOT NULL,           ---- N
-        email     text NOT NULL UNIQUE,    ---- E
-        phone     text NOT NULL UNIQUE,    ---- P
-        UNIQUE(name, address)
-    );
-\end{alltt}
-\pause
-\begin{itemize}
-\item PRIMARY KEY: $I\fz ANEP$
-\item UNIQUE: $E\fz I$, $P\fz I$, $AN\fz I$
-\item Z významu stĺpcov to vyzerá tak, že iné FZ (okrem tých, čo vyplývajú z uvedených) už medzi týmito atribútmi nie sú (a nechceme ich v SQL vynucovať).
-\end{itemize}
-\end{frame}
-
-
-\begin{frame}[fragile]{Foreign keys}
-Atribút obsiahnutý v niekoľkých reláciách:
-\begin{itemize}
-\item V matematickom relačnom modeli vždy \uv{ten istý}.
-\item V SQL rovnako pomenované stĺpce v rôznych tabuľkách nemajú medzi sebou žiaden vzťah.
-\end{itemize}
-\alert{Foreign keys} (cudzie kľúče) --- mechanizmus na zabezpečenie súladu hodnôt toho istého atribútu v rôznych tabuľkách (referenčná integrita).
-\end{frame}
-
-\begin{frame}[fragile]{Foreign keys}
-\begin{alltt}
-CREATE TABLE ta (
-  a1 integer \alert{REFERENCES tb},
-  a2 integer,
-  a3 integer,
-  \alert{FOREIGN KEY (a2, a3) REFERENCES tc (c1, c2)}
-);
-\end{alltt}
-Cudzie kľúče možno pomenovať (ľahšie sa tak identifikuje dôvod zamietnutia operácie):
-{\scriptsize
-\begin{alltt}
-  CONSTRAINT fk_name1 FOREIGN KEY (a1) REFERENCES tb (b1)
-  CONSTRAINT fk_name2 FOREIGN KEY (a2, a3) REFERENCES tc (c1, c2)
-\end{alltt}
-}
-\end{frame}
-
-\begin{frame}[fragile]{Foreign keys}
-\hbox{}{\small
-\begin{alltt}
-CREATE TABLE products (
-  product_no integer PRIMARY KEY,
-  price numeric
-);
-CREATE TABLE orders (
-  order_id integer PRIMARY KEY
-);
-CREATE TABLE order_items (
-  order_id integer \alert{REFERENCES orders} \blue{ON DELETE CASCADE},
-  product_no integer \alert{REFERENCES products}
-      \blue{ON DELETE RESTRICT ON UPDATE CASCADE},
-  quantity integer,
-  PRIMARY KEY (product_no, order_id)
-);
-\end{alltt}
-}
-\end{frame}
-
-\begin{frame}[fragile]{Foreign keys}
-Možnosti pre \blue{ON DELETE}
-\begin{itemize}
-\item \alert{CASCADE} -- zmaže riadok, ktorý sa odkazoval na mazaný riadok
-\item \alert{RESTRICT} -- nezmaže nič, operácia DELETE skončí s chybou
-\item SET NULL -- nastaví odkaz na NULL\\ (zlyhá pre NOT NULL stĺpce)
-\item SET DEFAULT -- nastaví hodnotu odkazu na defaultnú
-(zlyhá, ak takto vznikne nekorektný odkaz)
-\item NO ACTION -- toto je default; chyba sa ohlási na konci príkazu DELETE (resp. UPDATE), ak však je FK DEFERRABLE INITIALLY DEFERRED, až pri COMMIT (RESTRICT sa neodkladá).
-\end{itemize}
-\end{frame}
-
-\begin{frame}[fragile]{Foreign keys}
-Možnosti pre \blue{ON UPDATE}
-\begin{itemize}
-\item \alert{CASCADE} -- zmení odkazujúcu hodnotu na novú hodnotu odkazovanej
-(zachová väzbu medzi riadkami)
-\item \alert{RESTRICT} -- zabráni zmene v odkazovanej tabuľke, UPDATE ihneď skončí s chybou
-\item SET NULL -- nastaví odkaz na NULL (väzba zanikne)
-\item SET DEFAULT -- nastaví hodnotu odkazu na defaultnú
-(zlyhá, ak takto vznikne nekorektný odkaz)
-\item NO ACTION -- toto je default; chyba sa ohlási na konci príkazu UPDATE, ak však je FK DEFERRABLE INITIALLY DEFERRED, až pri COMMIT (RESTRICT sa neodkladá).
-\end{itemize}
-\end{frame}
-
-\begin{frame}[fragile]{Foreign keys}
-Kedy sa vyhodnocuje platnosť odkazu?
-\begin{itemize}
-\item \alert{DEFERRED} -- až pri commite transakcie
-\item \alert{IMMEDIATE} -- okamžite po vykonaní operácie
-\end{itemize}
-\pause
-Možnosti pri definícii cudzieho kľúča:
-\begin{itemize}
-\item \green{NOT DEFERRABLE} -- vždy okamžité vyhodnocovanie
-\item \green{DEFERRABLE INITIALLY IMMEDIATE} -- v rámci tx možno zvoliť, kedy vyhodnocovať, default je ihneď
-\item \green{DEFERRABLE INITIALLY DEFERRED} -- v rámci tx možno zvoliť, kedy vyhodnocovať, default je commit
-\end{itemize}
-\end{frame}
-
-\begin{frame}[fragile]{Mazanie záznamov}
-Pri nastavení ON DELETE treba postupovať citlivo.
-\\[2mm]
-Použitie CASCADE vedie k implicitnému mazaniu, ktorého si autor dotazu nemusí byť vedomý.
-Napríklad pri mazaní objednávky je jasné, že bude zmazaný aj zoznam produktov z tejto objednávky,
-ale pri mazaní učiteľa nechceme prísť o dáta z hodnotenia študentov, ktoré sú naňho naviazané, ani o materiály, ktoré pre školu vytvoril.
-\\[2mm]
-Použitie RESTRICT spraví mazanie explicitným.
-Klientsky program si napr. môže vyžiadať zoznam mazaných objektov a nechať ho potvrdiť používateľom,
-alebo zmeniť naviazanie cez cudzie kľúče na nezmazané záznamy.
-\end{frame}
-
-\begin{frame}[fragile]{Mazanie záznamov}
-Nevýhody ON DELETE CASCADE:
-\begin{itemize}
-\item Nezamýšľaná strata záznamov.
-\item Náročnejšie debugovanie --- ťažšie logovanie či pátranie po príčine straty dát.
-\item Pokles výkonu pri masívnom mazaní --- tabuľka, z ktorej sa maže veľa vecí, ostane pre ostatné transakcie de facto zablokovaná.
-Mazanie môže trvať dlhé minúty a autor DELETE to nemusí vedieť.
-\item Bezpečnostné problémy, napr. ak máme prístupové práva na úrovni jednotlivých záznamov.
-\end{itemize}
-\end{frame}
-
-\begin{frame}[fragile]{Mazanie záznamov}
-Ďalšie možnosti:
-\begin{itemize}
-\item {\emph{Soft delete}}: Záznamy len označíme (v extra stĺpci) ako zmazané, ale ponecháme v databáze. Cez trigger sa dá spraviť cascade.
-Nevýhoda: vo všetkých dotazoch potom musíme filtrovať cez pridaný flag.
-\item Tabuľka historických hodnôt: zmazané záznamy presúvame (napr. trigger) do inej tabuľky a pripíšeme k nim obdobie platnosti.
-\item Temporal tables (SQL Server).
-\end{itemize}
-\end{frame}
 
 \begin{frame}{Užitočná redundancia}
 Ak máme veľa dát, možno nechceme opakovane rátať agregačné funkcie, povedzme súčet.
@@ -1013,7 +1029,7 @@ tým jednoduchšie sa robí vkladanie a úpravy dát, ale výpočet niektorých 
 Naopak viac redundancie zrýchli výpočet dotazov, ale skomplikuje udržiavanie konzistencie dát.
 
 Ak v schéme existujúcej databázy vidíte neštandardné prvky,
-navrhujte ich zmeny až po dôsledkom preverení ich pôvodu a dôvodov ich vzniku.
+navrhujte ich zmeny až po dôslednom preverení ich pôvodu a dôvodov ich vzniku.
 (Pozri tiež \href{https://fs.blog/chestertons-fence/}{Chestertonov plot}.)
 \end{frame}
 
