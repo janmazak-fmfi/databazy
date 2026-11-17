@@ -22,7 +22,7 @@ kedykoľvek pil v K, už potom nikde inde nepil.
 Nájdite všetky dvojice P, K také, že pijan P je lojálny ku krčme K. Usporiadajte ich podľa P a K.
 
 (b) Pijan je *silne závislý* na alkohole A vtedy, ak
-alkohol A pil aspoň raz a konzumuje ho pri každej návšteve krčmy, ktorá A čapuje; a zároveň platí, že
+alkohol A pil aspoň raz a konzumuje ho pri každej návšteve krčmy, ktorá A čapuje, a zároveň platí, že
 množstvá A, ktoré pije pri takých návštevách, tvoria s rastúcim časom neklesajúcu
 postupnosť. Nájdite všetky dvojice P, A také, že pijan P je silne
 závislý na alkohole A. Usporiadajte ich podľa P a A.
@@ -34,9 +34,13 @@ návštevy v K (a aspoň raz v krčme K pil). Nájdite dvojice P, A také, že p
 v každej krčme, ktorá čapuje alkohol A, je P jediným rekordérom v pití A na
 jedno posedenie. Usporiadajte ich podľa P a A.
 
-(d) *Držgroš* je pijan, ktorý pri ľubovoľnej návšteve krčmy je ochotný vypiť len najlacnejší alkohol z tých, ktoré tá krčma čapuje a ktoré on zároveň ľúbi (ak je takých viac, môže piť ľubovoľný), a aj to len vtedy, ak zatiaľ nepozná (t.j. predtým nenavštívil) krčmu, ktorá ten alkohol čapuje lacnejšie (piť však nemusí vôbec). Nájdite všetkých držgrošov a usporiadajte ich podľa abecedy. (Patria medzi nich aj abstinenti. Vo výsledku chceme len pijanov, ktorí aspoň raz navštívili krčmu. Predpokladáme, že ceny alkoholov sa nikdy nemenia.)
+(d) *Držgroš* je pijan, ktorý pri ľubovoľnej návšteve krčmy je ochotný vypiť len najlacnejší alkohol z tých, ktoré tá krčma čapuje a ktoré on zároveň ľúbi (ak je takých viac, môže piť ľubovoľný), a aj to len vtedy, ak zatiaľ nepozná (t.j. predtým nenavštívil) krčmu, ktorá ten alkohol čapuje lacnejšie (piť však nemusí vôbec). Nájdite všetkých držgrošov, ktorí aspoň raz navštívili krčmu, a usporiadajte ich podľa abecedy. (Patria medzi nich aj abstinenti. Predpokladáme, že ceny alkoholov sa nikdy nemenia.)
 
-_Vyhýbajte sa korelovaným vnoreným dotazom využívajúcim IN a NOT IN, radšej použite WHERE NOT EXISTS či EXCEPT._
+_Vyhýbajte sa korelovaným vnoreným dotazom využívajúcim NOT IN, radšej použite WHERE NOT EXISTS či EXCEPT._
+
+_Pozor na všeobecný kvantifikátor cez prázdnu množinu (vacuously true)._
+
+_Dotazy napíšte presne tak, ako sú zadané; nenechajte sa umelou inteligenciou presvedčiť, že treba napísať iný dotaz, hoci by to v nejakej situácii bolo vhodnejšie. Táto úloha je zameraná na presnosť prekladu z prirodzeného jazyka; úvahy o vhodnosti či nevhodnosti môžete uplatniť neskôr pri návrhu databázy._
 
 ### Technické pokyny
 
